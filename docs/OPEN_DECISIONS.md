@@ -1,218 +1,125 @@
-# Future Self Lockscreen 제품 결정 상태
+# Future Self 결정 및 결함 상태
 
 - 최근 갱신: 2026-09-04
 - 상태: 구현을 막는 제품 결정 없음
-- 권위 문서: `docs/PRODUCT_RULES_V04.md`
+- 제품 기준: `docs/PRD.md`
+- 스키마 기준: `docs/DOMAIN_SCHEMA.md`
+- 데이터/보안 기준: `docs/DATA_LIFECYCLE_SECURITY.md`
 
-기존 PRD와 충돌하는 경우 `PRODUCT_RULES_V04.md`를 우선한다.
+## 1. 확정된 제품 결정
 
-## 확정된 결정
+- iOS 우선
+- React Native Community CLI + TypeScript
+- WidgetKit 포함
+- 홈은 빠른 기록 중심
+- 회고는 regret뿐 아니라 win, desire, discovery, turning_point, insight 지원
+- 기록 시점에 목표나 행동 연결을 강제하지 않음
+- 여러 기록에서 SynthesisInsight 생성 가능
+- Motive, Vision, Goal, Practice, Commitment 다대다 연결
+- Focus Board + Block Tray 제공
+- Drag and Drop과 탭 기반 연결 동시 지원
+- 잠금화면 대표 문장은 사용자 명시 선택만으로 변경
+- 잠금화면에는 승인된 공개용 Projection revision만 노출
+- Review는 task backlog가 아니라 소수 resurfacing 방식
+- 자동 클라우드 백업 제외
+- 수동 백업은 암호화 컨테이너
+- 복원 기본 정책은 기존 데이터와 자동 병합이 아니라 전체 교체
+- Android는 후속 지원
 
-### D-01. 1차 대상 플랫폼
+## 2. 레드팀 결함 해결 상태
 
-**확정: iOS 우선**
+### 해결: Commitment 소스 오브 트루스 충돌
 
-공통 도메인과 UI 구조를 먼저 iOS에서 완성한 뒤 Android를 후속 지원한다.
+공통 `MeaningNode`를 stable 원본으로 사용하고 종류별 revision detail을 둔다. 단일 `Commitment.reflectionItemId` 모델은 기준 스키마에서 사용하지 않는다.
 
-### D-02. iOS WidgetKit
+### 해결: derived_from 스키마 불일치
 
-**확정: 첫 MVP에 포함**
+출처와 의미 관계를 분리했다. 모든 인과 출처는 `CausalEvidenceLink`로 관리한다.
 
-잠금화면에서 지속적으로 문장을 보게 하는 것이 핵심이므로 이미지 생성과 WidgetKit을 함께 제공한다.
+### 해결: 과거 원문 소급 변경
 
-### D-03. 잠금화면 대표 문장
+CaptureEntry, ReflectionItem, SynthesisInsight, MeaningNode는 revision을 사용한다. Evidence는 당시 revision을 고정한다.
 
-**확정: 한 번에 가장 중요한 문장 하나**
+### 해결: OriginMoment 관계 스냅샷 부족
 
-무작위 회전은 사용하지 않는다.
+`OriginRelationSnapshot`을 추가했다.
 
-다른 중요한 원칙이 영구적으로 가려지는 문제는 별도의 `Review Queue`로 해결한다.
+### 해결: 관계별 의미 변화 기록 불가
 
-### D-04. 장기 보존 정책
+MeaningCheckIn은 `node | relation`을 모두 대상으로 한다.
 
-**확정: 중요한 원칙은 기본적으로 장기 보존**
+### 해결: Synthesis와 MeaningNode 간 간접 인과 순환
 
-다만 `상시 보존`과 `현재 잠금화면 노출`을 같은 개념으로 취급하지 않는다.
+전체 causal provenance graph에 cycle validation을 적용한다.
 
-- retained
-- eligibleForLockscreen
-- activeAnchor
+### 해결: activeAnchor 변경 규칙 미정
 
-를 분리한다.
+대표 문장은 사용자 명시 동작으로만 변경한다. Review, FocusWindow, 새 Commitment가 자동 변경하지 않는다.
 
-### D-05. FocusWindow
+### 해결: 잠금화면 승인 자동 승계 위험
 
-**확정: 특정 날짜나 월은 노출의 절대 조건이 아니라 우선순위를 높이는 보조 신호로 사용**
+승인은 `LockscreenProjectionRevision` 단위이다. 새 revision은 다시 승인해야 한다.
 
-정교한 FocusWindow는 P1에서 구현한다.
+### 해결: 하나의 문장이 모든 출력 크기를 담당
 
-### D-06. 데이터 백업
+내부 Commitment, publicSafeMessage, widgetMessage, wallpaperMessage를 분리 가능하게 설계했다.
 
-**확정: 자동 클라우드 백업 제외**
+### 해결: 상시 보존과 실제 노출 혼동
 
-다만 장기 사용 데이터 손실 위험 때문에 데이터 모델 안정 직후 암호화된 수동 내보내기와 복원을 우선 구현한다.
+장기 보존, 잠금화면 적격성, 현재 대표 Projection을 분리했다.
 
-평문 JSON은 최종 사용자 기본 백업 포맷으로 사용하지 않는다.
+### 해결: Review Queue가 미처리 Inbox가 될 위험
 
-### D-07. React Native 프로젝트 형태
+영구 task queue를 두지 않는다. 홈에 계산된 후보를 최대 3개만 보여주고 snooze를 지원한다.
 
-**확정: React Native Community CLI + TypeScript**
+### 해결: 중복 노드 병합 시 역사 손실
 
-Widget Extension, App Group, Android Kotlin 네이티브 모듈을 직접 구성한다.
+source node를 `merged` 상태로 보존하고 과거 relation endpoint를 재작성하지 않는다. 현재 조회만 canonical node로 resolve한다.
 
-### D-08. 초기 공개 범위
+### 해결: 종료와 실패 혼동
 
-**확정: 본인 사용 MVP로 먼저 검증**
+RetirementReason을 구분하고 종료 시점의 의미를 보존한다.
 
-다만 데이터 모델과 화면 문구는 특정 개인, 편입, 수능에 종속하지 않는다.
+### 해결: 삭제와 역사 불변성 충돌
 
-### D-09. 문장 작성 방식
+명시적인 hard delete는 역사 보존보다 우선한다. 객체별 cascade와 transaction 규칙을 정의했다.
 
-**확정: 질문형 입력 가이드 + 사용자 직접 작성**
+### 해결: restore merge 정책 미정
 
-MVP에서는 AI가 사용자의 욕망, 후회, 가치관, 행동 원칙을 대신 생성하지 않는다.
+1차 restore는 staging validation 후 전체 DB 교체로 확정했다. 자동 merge import는 별도 기능이다.
 
-### D-10. 잠금화면 배경
+### 해결: Private Store 보호 미정
 
-**확정: 단색 + 사용자가 사진 보관함에서 선택한 이미지**
+iOS private 사용자 데이터에는 강한 File Protection을 적용하고 DB sidecar 파일까지 검증한다. App Group에는 승인된 최소 Projection만 둔다.
 
-현재 기기의 기존 잠금화면 배경을 앱이 자동으로 읽어 재사용하는 기능은 핵심 요구사항으로 두지 않는다.
+### 해결: App Switcher 스냅샷 노출
 
-### D-11. 회고 범위
+inactive/background 전환 시 privacy cover를 적용한다.
 
-**확정: 후회 전용이 아님**
+### 해결: Widget 즉시 갱신 가정
 
-ReflectionItem은 다음을 모두 다룬다.
+Widget은 eventual consistency로 정의한다. 앱은 reload를 요청하지만 즉시 렌더링 완료를 보장하지 않는다.
 
-- regret
-- win
-- desire
-- discovery
-- turning_point
-- insight
+### 해결: 문서 권위 분산
 
-모든 기록을 행동 원칙으로 바꾸도록 강제하지 않는다.
+`PRD.md`, `DOMAIN_SCHEMA.md`, `DATA_LIFECYCLE_SECURITY.md` 세 문서만 구현 기준으로 지정했다. 기존 v0.x 문서는 설계 이력이다.
 
-### D-12. 평소 기록과 2차 인사이트
+### 해결: 축소 MVP 표현과 범위 논쟁
 
-**확정: 빠른 기록과 Synthesis 지원**
+제품은 축소형 MVP를 목표로 하지 않는다. 구현 단계는 기능 삭제가 아니라 의존성과 데이터 무결성을 관리하기 위한 순서로 정의한다.
 
-사용자는 평소 생각을 한 줄만 저장할 수 있다.
+## 3. 비차단 구현 결정
 
-여러 기록이 쌓인 뒤 함께 보면서 `SynthesisInsight`를 만들고, 그 시점에 필요하면 Motive, Vision, Goal, Practice, Commitment로 연결한다.
+다음은 제품 구조를 바꾸지 않으므로 해당 단계에서 최신 라이브러리와 플랫폼 상태를 확인해 확정한다.
 
-### D-13. 그래프 연결 UX
+- 실제 앱 표시 이름
+- React Native 로컬 SQLite 라이브러리
+- 암호화 백업의 구체 cipher/KDF 및 구현 라이브러리
+- Widget과 wallpaper 문장 UX 길이 제한
+- 전체 Meaning Map 렌더링 라이브러리
 
-**확정: P0 Focus Board + Block Tray**
+## 4. 구현 시작 조건
 
-스크래치처럼 블록을 드래그하여 의미 있는 슬롯에 붙인다.
+현재 제품 구조상 추가 사용자 결정 없이 Phase 1 구현을 시작할 수 있다.
 
-드래그 앤 드롭과 동일 결과를 만드는 탭 기반 접근성 흐름을 반드시 제공한다.
-
-전체 무한 캔버스 Meaning Map은 P1이다.
-
-### D-14. 기본 진입점
-
-**확정: 빠른 기록 중심 홈**
-
-연말 회고는 주요 기능이지만 기본 첫 화면으로 강제하지 않는다.
-
-홈은 다음을 우선한다.
-
-1. 현재 대표 잠금화면 문장
-2. 한 줄 빠른 기록
-3. 최근 기록
-4. Review Queue
-5. 회고 진입점
-
-### D-15. 잠금화면 개인정보 경계
-
-**확정: 사용자가 명시적으로 승인한 공개용 문장만 잠금화면에 표시**
-
-내부 Why Graph의 개인 원문을 자동으로 잠금화면에 사용하지 않는다.
-
-`publicSafeMessage`와 `approvedForLockscreen` 상태를 별도로 관리한다.
-
-App Group에는 전체 개인 데이터베이스가 아니라 현재 위젯 표시에 필요한 최소 Projection만 공유한다.
-
-### D-16. Review Queue
-
-**확정: P0 최소 기능 포함**
-
-현재 대표 문장에 밀려 오랫동안 확인하지 못한 중요한 원칙을 다시 검토할 수 있게 한다.
-
-P0 최소 기능:
-
-- 마지막 의미 확인 시점
-- 아직 중요한지 재확인
-- 현재 표현으로 다시 쓰기
-- 유지, 일시 중지, 종료
-
-### D-17. 중복 개념
-
-**확정: 병합 가능 구조**
-
-비슷한 MeaningNode가 여러 개 생기는 것을 정상 상황으로 본다.
-
-병합 시 과거 OriginMoment, Provenance, 관계 이력은 삭제하지 않는다.
-
-병합 UI는 P1이어도 되지만 P0 데이터 모델은 안정적인 ID와 병합 이력을 수용할 수 있어야 한다.
-
-### D-18. 목표와 원칙의 종료
-
-**확정: 종료를 실패로 취급하지 않음**
-
-종료 이유를 구분한다.
-
-- achieved
-- no_longer_wanted
-- values_changed
-- superseded
-- deferred
-- context_changed
-- other
-
-### D-19. 데이터 소스 오브 트루스
-
-**확정: Why Graph 중심으로 통합**
-
-- 공통 원본: MeaningNode
-- 종류별 속성: Detail 모델
-- 노드 간 의미 연결: MeaningRelation
-- 회고·기록·인사이트 출처: ProvenanceLink
-- 최초 시점: OriginMoment
-- 의미 재평가: MeaningCheckIn
-
-`Commitment.reflectionItemId` 같은 단일 FK를 원본 관계로 사용하지 않는다.
-
-### D-20. MeaningCheckIn 대상
-
-**확정: 노드와 관계 모두 가능**
-
-하나의 Goal 전체가 아니라 특정 Motive 연결만 약해지거나 재해석될 수 있기 때문에 관계 단위의 의미 변화도 기록한다.
-
-## 아직 미확정이지만 구현을 막지 않는 항목
-
-### 실제 앱 표시 이름
-
-저장소 이름 `future-self-lockscreen`은 유지한다.
-
-실제 홈 화면과 향후 App Store 표시 이름은 UI 디자인 단계에서 확정한다.
-
-### 로컬 DB 라이브러리
-
-SQLite 계열 관계형 저장소를 기본 방향으로 하되 구현 시작 시 React Native 최신 생태계와 유지보수 상태를 확인해 선택한다.
-
-### 백업 암호화 포맷
-
-암호화된 수동 백업을 제공한다는 제품 결정은 확정했다. 구체적인 포맷과 키 처리 방식은 보안 설계 단계에서 정한다.
-
-### Widget 및 wallpaper 문장 길이
-
-출력별 문장 필드를 분리 가능한 구조로 만들고 실제 글자 제한은 실기기 테스트에서 결정한다.
-
-## 구현 시작 가능 여부
-
-**가능함.**
-
-현재 구현을 시작하기 위해 추가로 반드시 받아야 하는 제품 결정은 없다.
+구현 중 새로운 도메인 요구가 생기면 먼저 canonical schema와 migration 영향을 검토한 뒤 코드에 반영한다.

@@ -9,25 +9,23 @@
 
 Future Self의 데이터에는 개인적인 생각, 관계, 목표, 후회, 가치관 변화가 포함될 수 있다.
 
-따라서 이 문서는 다음을 명시적으로 정의한다.
+이 문서는 다음을 정의한다.
 
 - Private Store와 Widget 공유 데이터의 경계
 - 파일 보호
 - 앱 화면 노출 방지
 - 로그 정책
-- 수정과 revision
+- revision과 lifecycle event
 - 종료, 병합, 삭제
 - 백업과 복원
 - Public Git 저장소 규칙
 - 실패 시 transaction과 recovery 원칙
 
----
-
 ## 2. 데이터 등급
 
 ### 2.1 Private Content
 
-다음은 기본적으로 민감한 개인 데이터로 취급한다.
+다음은 기본적으로 민감한 개인 데이터이다.
 
 - CaptureEntry 원문
 - ReflectionItem 원문
@@ -35,24 +33,22 @@ Future Self의 데이터에는 개인적인 생각, 관계, 목표, 후회, 가�
 - Motive, Vision, Goal, Practice, Commitment 내부 본문
 - OriginMoment
 - MeaningCheckIn
-- 관계 note
+- relation note
 - 검색 인덱스에서 복원 가능한 원문
 
 이 데이터는 앱 Private Store에만 저장한다.
 
 ### 2.2 Public-Safe Projection
 
-사용자가 잠금화면 공개를 명시적으로 승인한 다음 데이터만 별도 등급으로 취급한다.
+사용자가 잠금화면 공개를 명시적으로 승인한 데이터만 별도 등급으로 취급한다.
 
-- approved LockscreenProjection의 widgetMessage
-- approved LockscreenProjection의 wallpaperMessage
+- approved ProjectionRevision의 widgetMessage
+- approved ProjectionRevision의 wallpaperMessage
 - projection revision ID
 - 표시 설정
 - generation
 
-`public-safe`는 인터넷 공개를 의미하지 않는다. 잠금화면처럼 주변 사람이 볼 수 있는 표면에 노출해도 된다고 사용자가 승인했다는 의미이다.
-
----
+`public-safe`는 인터넷 공개가 아니라 잠금화면처럼 주변 사람이 볼 수 있는 표면에 노출해도 된다고 사용자가 승인했다는 뜻이다.
 
 ## 3. iOS Private Store 보호
 
@@ -60,7 +56,7 @@ Future Self의 데이터에는 개인적인 생각, 관계, 목표, 후회, 가�
 
 기본 방향은 `FileProtectionType.complete`이다.
 
-Apple은 사용자 개인 정보나 사용자가 직접 만든 파일에는 strongest protection을 적용하고, `complete` 파일은 기기가 잠긴 동안 읽거나 쓸 수 없다고 안내한다.
+Apple은 사용자 개인 정보나 사용자가 직접 만든 파일에는 강한 보호 수준을 적용하도록 안내하고, `complete` 파일은 기기가 잠긴 동안 읽거나 쓸 수 없다고 설명한다.
 
 참고:
 
@@ -69,28 +65,26 @@ Apple은 사용자 개인 정보나 사용자가 직접 만든 파일에는 stro
 
 ### 3.1 SQLite 파일
 
-SQLite를 사용할 경우 다음 파일을 함께 보호 대상으로 관리한다.
+다음 파일을 함께 보호한다.
 
 - main database
 - WAL
 - SHM
 - application-level temporary files
-- local search index 또는 cache 중 사용자 원문을 포함하는 파일
+- 사용자 원문을 포함하는 local search index/cache
 
 DB library가 생성하는 sidecar 파일의 protection class가 main DB와 달라지지 않는지 실기기에서 검증한다.
 
 ### 3.2 잠금 상태 처리
 
-protected data가 unavailable 상태가 되면 다음 원칙을 따른다.
+protected data unavailable 시:
 
-- 쓰기 작업을 강제로 재시도하며 손상시키지 않는다.
-- 열려 있는 DB handle을 안전하게 닫거나 library 권장 방식으로 suspend한다.
-- protected data가 다시 available이 된 뒤 재연결한다.
-- 잠금 중 Private Store를 읽어야만 동작하는 기능을 핵심 기능으로 설계하지 않는다.
+- 쓰기를 억지로 수행하지 않는다.
+- DB handle을 library 권장 방식으로 닫거나 suspend한다.
+- protected data available 이후 안전하게 재연결한다.
+- 잠금 중 Private Store를 읽어야만 동작하는 기능을 핵심 기능으로 두지 않는다.
 
 Widget은 Private Store를 직접 읽지 않는다.
-
----
 
 ## 4. App Group 경계
 
@@ -100,63 +94,70 @@ App Group에는 Public-Safe Projection만 둔다.
 
 App Group projection은 잠금화면에서 사용될 목적이므로 Private Store보다 낮은 보호 수준이 필요할 수 있다. 초기 iOS 구현에서는 `completeUntilFirstUserAuthentication` 등 잠금화면 Widget 동작과 양립 가능한 보호 수준을 실기기에서 검증한다.
 
-여기에 민감 원문이 들어가지 않는 것이 보안 경계의 전제이다.
-
-App Group 파일에서 허용:
+허용:
 
 - approved projection text
-- projection ID
+- projection revision ID
 - generation
 - 표시 설정
 - updatedAt
 
 금지:
 
-- Reflection 원문
-- Capture 원문
+- Reflection/Capture/Synthesis 원문
 - Motive/Goal/Vision 원문
 - Why Trail
 - MeaningCheckIn
 - 전체 관계 그래프
 - 백업 암호화 키
 
----
+## 5. 잠금화면 승인 lifecycle
 
-## 5. 잠금화면 승인 경계
+ProjectionRevision 내용과 승인 상태를 같은 row에서 변경하지 않는다.
 
-잠금화면 공개 승인은 revision 단위이다.
+ProjectionRevision은 immutable content이고 승인은 `ProjectionApprovalEvent`라는 immutable event이다.
 
-### 5.1 승인 절차
+### 5.1 승인
 
 1. 사용자가 공개용 문장을 확인한다.
-2. 앱이 해당 LockscreenProjectionRevision payload를 canonical serialization한다.
+2. 앱이 ProjectionRevision payload를 canonical serialization한다.
 3. digest를 계산한다.
-4. revision을 `approved`로 변경하고 approvedAt과 digest를 저장한다.
-5. 이후 payload 수정은 기존 row 수정이 아니라 새 revision 생성이다.
+4. `approved` ProjectionApprovalEvent를 생성한다.
+5. 동일 transaction에서 승인 대상 revision과 digest 정합성을 검증한다.
 
-따라서 과거 승인 상태가 수정된 문장에 자동 승계되지 않는다.
+### 5.2 철회
 
-### 5.2 내부 Commitment 수정
+사용자가 승인을 철회하면 `revoked` ProjectionApprovalEvent를 생성한다.
 
-내부 Commitment가 수정되어도 현재 Widget 문장은 자동 변경되지 않는다.
+해당 revision이 activeAnchor라면 같은 Private DB transaction에서 activeAnchor를 비운다.
 
-사용자는 새 내부 의미에 맞는 공개 문장을 작성하고 다시 승인한 뒤 대표 Projection을 교체한다.
+DB commit 후 App Group에서 기존 projection을 제거하거나 빈 상태로 갱신하고 Widget reload를 요청한다.
 
-이 규칙으로 개인 원문이 실수로 잠금화면에 노출되는 것을 방지한다.
+### 5.3 현재 승인 상태
 
----
+해당 ProjectionRevision의 가장 최근 ApprovalEvent로 계산한다.
 
-## 6. App Switcher와 화면 캡처 노출
+- event 없음 → 미승인
+- latest approved → 승인
+- latest revoked → 철회
 
-앱이 inactive/background로 전환될 때 App Switcher용 시스템 스냅샷에 개인 원문이 남을 수 있다.
+### 5.4 문장 수정
 
-따라서 iOS 앱은 앱이 비활성 상태가 되는 시점에 privacy cover를 최상단에 표시하고 foreground 복귀 후 제거한다.
+공개 문장 수정은 기존 ProjectionRevision 수정이 아니라 새 ProjectionRevision 생성이다.
+
+새 revision에는 approval event가 없으므로 자동으로 재승인이 필요하다.
+
+내부 Commitment revision이 바뀌어도 과거 approved ProjectionRevision은 자동 수정되지 않는다.
+
+## 6. App Switcher와 화면 노출
+
+앱이 inactive/background로 전환될 때 App Switcher용 시스템 스냅샷에 개인 원문이 남지 않도록 privacy cover를 최상단에 표시한다.
+
+foreground 복귀 후 cover를 제거한다.
 
 privacy cover에는 개인 원문, 최근 기록, Why Trail을 표시하지 않는다.
 
-사용자가 직접 OS 스크린샷을 찍는 행위 자체를 강제로 차단하는 것은 기본 요구사항이 아니다.
-
----
+사용자가 직접 OS 스크린샷을 촬영하는 동작을 기본적으로 차단하지 않는다.
 
 ## 7. 로그와 Crash 보고
 
@@ -165,10 +166,11 @@ privacy cover에는 개인 원문, 최근 기록, Why Trail을 표시하지 않�
 - 사용자 원문
 - 검색어
 - 공개 승인 전 잠금화면 문장
-- note, trigger, doubt, currentMeaning
+- relation note
+- MeaningCheckIn의 trigger/doubt/currentMeaning
 - export 암호 또는 암호화 키
 
-로그에 필요한 경우 허용되는 정보:
+허용 가능한 운영 정보:
 
 - opaque entity ID
 - schema version
@@ -177,99 +179,71 @@ privacy cover에는 개인 원문, 최근 기록, Why Trail을 표시하지 않�
 - row count
 - migration step ID
 
-Crash report breadcrumb에도 사용자 텍스트를 포함하지 않는다.
-
-외부 Crash/Analytics SDK를 도입할 경우 별도 개인정보 검토를 거친다. 기본 제품은 행동 분석 SDK를 사용하지 않는다.
-
----
+외부 Crash/Analytics SDK를 도입하려면 별도 개인정보 검토를 거친다. 기본 제품은 행동 분석 SDK를 사용하지 않는다.
 
 ## 8. 수정 정책
 
-### 8.1 내용 수정
+사용자 텍스트 수정은 새 revision 생성이다.
 
-사용자가 텍스트를 수정하면 새 revision을 만든다.
+기존 revision을 수정하지 않는다.
 
-기존 revision은 그대로 보존한다.
+Synthesis 또는 MeaningNode revision을 만들 때 근거로 사용한 revision/event ID를 causal evidence에 저장한다.
 
-### 8.2 출처 고정
+Why Trail에서는 필요하면 당시 근거 표현과 현재 최신 표현을 구분하여 보여준다.
 
-Synthesis 또는 MeaningNode를 만들 때 해당 시점의 revision ID를 evidence로 저장한다.
+## 9. MeaningNode lifecycle
 
-나중에 원문 객체를 수정해도 과거 derived object의 근거 revision은 바뀌지 않는다.
+pause/resume/retire/reactivate/archive는 단일 timestamp 필드로 과거를 덮어쓰지 않는다.
 
-### 8.3 과거 표현과 현재 표현
+모든 상태 변화는 `MeaningNodeLifecycleEvent`로 남긴다.
 
-Why Trail은 필요한 경우 다음을 동시에 보여줄 수 있다.
+MeaningNode.status는 현재 조회를 위한 cache이며 lifecycle event와 같은 transaction에서 갱신한다.
 
-- 당시 근거로 사용한 표현
-- 현재 최신 표현
+예시:
 
-둘을 같은 텍스트로 위장하지 않는다.
+```text
+active
+→ paused
+→ resumed
+→ retired(reason=deferred)
+→ reactivated
+→ retired(reason=achieved)
+```
 
----
+이 전체 이력을 보존할 수 있어야 한다.
 
-## 9. 종료 정책
-
-Retire는 삭제가 아니다.
-
-종료 시 node와 관계 기록을 유지하고 현재 기본 탐색에서만 제외할 수 있다.
-
-종료 metadata:
-
-- retirementReason
-- retiredAt
-- retirementNote
-
-`deferred`의 경우 향후 다시 active로 전환할 수 있다. 이때 과거 종료 이벤트를 지우지 않고 별도 재활성화 이력을 남기는 방향으로 구현한다.
-
----
+병합은 일반 lifecycle이 아니라 `NodeMergeEvent`로 별도 처리하고 merged node를 다시 활성화하지 않는다.
 
 ## 10. 관계 종료
 
-MeaningRelation의 의미나 endpoint가 달라졌다면 기존 관계를 retire하고 새 관계를 만든다.
+MeaningRelation endpoint 또는 kind가 달라지면 기존 관계를 retire하고 새 관계를 만든다.
 
-관계 retire는 연결 이력 삭제가 아니다.
+retire된 동일 관계를 재활성화하지 않는다. 다시 연결하고 싶다면 새 relation ID를 만든다.
 
-MeaningCheckIn은 retire된 과거 관계에도 연결될 수 있다.
-
----
+이 방식으로 연결이 끊겼다가 다시 생긴 시간 구간을 보존한다.
 
 ## 11. 병합 정책
 
-병합은 사용자 경험상 중복 정리이지만 내부적으로 과거 의미를 삭제하지 않는다.
-
-### 11.1 원자적 transaction
+병합은 중복 개념 정리이다. `supersedes`와 혼동하지 않는다.
 
 Node merge는 하나의 DB transaction으로 처리한다.
 
-- source와 target 검증
+- source/target 검증
 - canonical target resolve
 - merge cycle 검사
-- source 상태 변경
+- source status를 merged로 변경
 - mergedIntoNodeId 설정
 - NodeMergeEvent 저장
 
-### 11.2 과거 관계
-
 과거 relation endpoint를 target으로 rewrite하지 않는다.
 
-과거에는 실제로 source node라는 별도 개념이 존재했기 때문이다.
-
-현재 UI 쿼리는 merged node를 canonical target으로 resolve할 수 있다.
-
-### 11.3 새 관계
-
-병합 이후 새 관계는 canonical target을 사용한다.
-
----
+현재 UI 쿼리는 merged source를 canonical target으로 resolve한다.
 
 ## 12. 완전 삭제 정책
 
-역사 보존은 사용자의 명시적인 삭제 권리보다 우선하지 않는다.
+사용자의 명시적인 hard delete 요청은 역사 보존보다 우선한다.
 
-Hard delete는 파괴적 동작이므로 사용자에게 영향 범위를 보여준 뒤 실행한다.
-
-### 12.1 CaptureEntry / ReflectionItem / SynthesisInsight 삭제
+### 12.1 CaptureEntry / ReflectionItem / SynthesisInsight
 
 하나의 transaction에서:
 
@@ -278,65 +252,57 @@ Hard delete는 파괴적 동작이므로 사용자에게 영향 범위를 보여
 3. 해당 revision을 evidence로 가리키는 CausalEvidenceLink 삭제
 4. 관련 canvas placement 삭제
 
-해당 출처에서 과거에 만들어진 Synthesis나 MeaningNode 자체는 자동 삭제하지 않는다.
+해당 출처에서 과거에 만들어진 다른 Synthesis나 MeaningNode는 자동 삭제하지 않는다.
 
-파생 객체는 독립적으로 남지만 해당 삭제된 출처는 더 이상 Why Trail에 나타나지 않는다.
-
-### 12.2 MeaningNode 삭제
+### 12.2 MeaningNode
 
 하나의 transaction에서:
 
 1. node와 모든 revision/detail 삭제
-2. node endpoint를 가진 MeaningRelation 및 relation revision 삭제
-3. node를 대상으로 한 MeaningCheckIn 삭제
-4. node를 derived object로 가진 CausalEvidenceLink 삭제
-5. node revision을 evidence로 사용한 CausalEvidenceLink 삭제
-6. OriginMoment 및 relation snapshot 삭제
-7. ReviewState 삭제
-8. FocusWindow 삭제
-9. CanvasPlacement 삭제
-10. 관련 LockscreenProjection 및 revision 삭제
-11. activeAnchor가 관련 Projection을 가리키면 anchor 비움
-12. merge event에서 해당 node가 source/target인 경우 삭제 영향 검증 후 정리
+2. MeaningNodeLifecycleEvent 삭제
+3. node endpoint를 가진 MeaningRelation과 relation revision 삭제
+4. 해당 relation을 대상으로 한 MeaningCheckIn 삭제
+5. node를 대상으로 한 MeaningCheckIn 삭제
+6. node revision을 evidence 또는 derived revision으로 사용하는 CausalEvidenceLink 삭제
+7. OriginMoment/OriginRelationSnapshot 삭제
+8. ReviewState 삭제
+9. FocusWindow 삭제
+10. CanvasPlacement 삭제
+11. 관련 LockscreenProjection과 ProjectionRevision 삭제
+12. 관련 ProjectionApprovalEvent 삭제
+13. activeAnchor가 관련 ProjectionRevision을 가리키면 anchor 비움
+14. 관련 NodeMergeEvent 영향 검증 후 정리
 
-다른 MeaningNode와 Synthesis는 사용자가 함께 삭제하라고 선택하지 않는 한 유지한다.
+다른 독립 객체는 사용자가 함께 삭제하라고 선택하지 않는 한 유지한다.
 
-### 12.3 관계 삭제
+### 12.3 MeaningRelation
 
-기본 UI는 관계 retire를 제공한다.
+기본 UI는 retire를 제공한다.
 
-사용자가 `과거 기록에서도 완전히 삭제`를 명시적으로 선택할 때만 relation과 revision, relation 대상 MeaningCheckIn, OriginRelationSnapshot을 삭제한다.
+사용자가 과거 기록에서도 완전 삭제를 선택한 경우에만 relation, relation revision, relation 대상 MeaningCheckIn, 관련 OriginRelationSnapshot, relation revision을 evidence로 사용하는 CausalEvidenceLink를 삭제한다.
 
 ### 12.4 전체 데이터 삭제
 
-전체 앱 데이터 삭제는 다음을 모두 제거한다.
+다음을 모두 제거한다.
 
 - Private Store
 - App Group projection
 - generated app-private images
 - local backup cache
 - search index
-- preference 중 개인 콘텐츠와 연결되는 값
+- 개인 콘텐츠와 연결되는 preference
 
-사진 보관함에 사용자가 직접 저장한 wallpaper 이미지는 OS Photos 데이터이므로 별도로 안내한다. 앱이 사용자 사진 보관함의 다른 데이터를 임의로 삭제하지 않는다.
-
----
+사진 보관함에 사용자가 직접 저장한 wallpaper는 Photos 데이터이므로 별도로 안내한다.
 
 ## 13. 삭제 실패와 transaction
 
-Hard delete 중 일부 단계만 성공한 상태를 허용하지 않는다.
+DB 내부 hard delete는 하나의 transaction으로 처리하고 실패하면 rollback한다.
 
-DB 내부 삭제는 transaction으로 처리하고 실패하면 rollback한다.
+DB commit 이후 App Group 정리가 실패하면 Private DB 삭제를 되돌리지 않는다.
 
-DB commit 후 App Group projection 삭제가 실패하는 경우:
-
-- Private Store 삭제는 되돌리지 않는다.
-- App Group을 즉시 재삭제 시도한다.
-- 앱 시작 시 orphaned shared projection 정리 검사를 수행한다.
-
-개인 데이터 삭제가 우선이다.
-
----
+- App Group 삭제 재시도
+- 다음 앱 시작 시 orphaned shared projection cleanup
+- 개인 Private Data 삭제 우선
 
 ## 14. 백업 포맷 요구사항
 
@@ -355,77 +321,55 @@ ciphertext
 authenticationTag 또는 동등한 무결성 정보
 ```
 
-구체 암호 알고리즘과 KDF library는 구현 시 최신 보안성과 플랫폼 지원을 검토하여 확정한다.
+구체 cipher/KDF와 library는 구현 시 최신 보안성과 플랫폼 지원을 검토하여 확정한다.
 
-요구사항:
+필수 성질:
 
 - authenticated encryption
-- 사용자 암호에서 직접 encryption key를 사용하지 않음
+- password를 직접 encryption key로 사용하지 않음
 - salt 사용
-- 충분한 비용의 password KDF
-- 백업 파일만으로 평문 내용을 읽을 수 없음
-- 잘못된 암호와 파일 손상을 구분 가능한 오류로 처리하되 내부 crypto detail을 과도하게 노출하지 않음
-
----
+- 비용이 충분한 password KDF
+- 파일만으로 평문을 읽을 수 없음
+- 암호화 키와 password를 로그에 기록하지 않음
 
 ## 15. 백업 생성
 
-백업 절차:
-
 1. Private DB consistent snapshot 생성
 2. schema integrity 검사
-3. 백업 payload 생성
-4. 메모리 또는 임시 파일에서 암호화
+3. payload 생성
+4. 암호화
 5. 암호화 성공 후에만 사용자 저장 위치로 전달
-6. 평문 temporary payload 안전하게 정리
+6. 평문 temporary payload 정리
 
-백업에는 App Group projection을 별도로 보존할 필요가 없다. restore 후 approved Projection과 activeAnchor를 기준으로 재생성할 수 있다.
-
----
+App Group projection은 backup 핵심 데이터가 아니다. restore 후 approved Projection과 activeAnchor에서 재생성한다.
 
 ## 16. 복원 정책
 
-1차 restore는 merge가 아니라 전체 교체이다.
+1차 restore는 기존 데이터와 자동 병합하지 않고 전체 교체한다.
 
-### 16.1 restore pipeline
+### restore pipeline
 
-1. 파일 format 확인
-2. 암호 해제 및 authenticated integrity 검증
+1. format 확인
+2. 암호 해제와 authenticated integrity 검증
 3. schemaVersion 확인
-4. 별도 temporary DB로 import
-5. 필요한 migration 실행
-6. FK/graph/revision/cycle/projection 무결성 검사
+4. temporary DB로 import
+5. migration 실행
+6. FK/revision/causal cycle/projection approval/anchor 무결성 검사
 7. 모든 검사가 성공한 경우에만 현재 DB와 atomic swap
-8. 실패하면 현재 DB 유지
+8. 실패 시 현재 DB 유지
 9. 성공 후 App Group projection 재생성
 
-### 16.2 현재 데이터가 있는 경우
+현재 데이터가 있는 경우 `복원하면 현재 기기의 Future Self 데이터가 백업 시점 데이터로 교체됩니다.`라는 의미를 명확히 안내한다.
 
-사용자에게 다음을 명확히 안내한다.
-
-`복원하면 현재 기기의 Future Self 데이터가 백업 시점 데이터로 교체됩니다.`
-
-자동 병합하지 않는다.
-
-서로 다른 두 백업 또는 두 기기의 데이터를 의미적으로 병합하는 기능은 별도 import/merge 제품 기능이다.
-
----
+서로 다른 데이터 세트의 의미적 merge import는 별도 기능이다.
 
 ## 17. schema migration
 
-모든 DB는 schemaVersion을 가진다.
-
-migration 원칙:
-
-- migration은 순방향 명시적 단계로 관리
+- 순방향 명시적 migration
 - destructive migration을 기본 fallback으로 사용하지 않음
 - migration 전후 integrity test
-- 실패 시 사용자 데이터가 있는 기존 DB를 삭제하지 않음
-- 개발 중에도 실제 장기 데이터가 있다고 가정하고 migration test fixture 운영
-
-fixture는 완전히 가상 데이터만 사용한다.
-
----
+- 실패 시 기존 사용자 DB 삭제 금지
+- 장기 데이터가 있다고 가정한 가상 fixture 운영
 
 ## 18. Widget 동기화
 
@@ -434,56 +378,49 @@ Widget은 Private DB와 eventual consistency 관계이다.
 activeAnchor 변경 시:
 
 1. Private DB transaction commit
-2. approved ProjectionRevision 확인
-3. App Group에 새 WidgetProjection을 atomic write
+2. 최신 approval event 기준 approved ProjectionRevision 확인
+3. App Group WidgetProjection atomic write
 4. generation 증가
 5. WidgetCenter reload 요청
 
-App Group write 또는 reload request가 실패하면 retry 가능한 sync 상태를 저장한다.
+App Group write 실패 시 재동기화 상태를 남긴다.
 
-사용자에게 OS가 실제 Widget을 즉시 렌더링했다고 거짓으로 표시하지 않는다.
+사용자에게 OS가 실제 Widget을 즉시 렌더링했다고 표시하지 않는다.
 
-Apple은 WidgetKit reload에 일일 budget을 적용하고 timeline entry 날짜에 정확히 갱신된다고 보장하지 않는다.
+Apple은 WidgetKit reload에 일일 budget을 적용하며 timeline entry 날짜에 정확히 업데이트된다고 보장하지 않는다.
 
 참고:
 
 - https://developer.apple.com/documentation/widgetkit/keeping-a-widget-up-to-date
 - https://developer.apple.com/documentation/widgetkit/timeline
 
----
-
 ## 19. Public Git 저장소
-
-현재 저장소는 Public이다.
 
 금지:
 
 - 실제 사용자 DB
 - 실제 export
 - 실제 개인 회고 원문
-- 개인 정보가 포함된 test fixture
-- 실사용 화면 캡처 중 개인 원문이 보이는 이미지
+- 개인 정보가 포함된 fixture
+- 개인 텍스트가 보이는 실사용 스크린샷
 - production 로그
-- 암호화 키 또는 비밀번호
+- 암호화 키/비밀번호
 
-문서 예시는 가능한 한 가상 사례를 사용한다.
+문서와 테스트 예시는 가상 사례를 사용한다.
 
-이미 Git history에 들어간 과거 텍스트는 현재 브랜치에서 삭제해도 즉시 Git history에서 제거되는 것은 아니다. 민감 정보가 실제로 커밋된 경우에는 단순 파일 수정이 아니라 별도의 history purge 절차를 수행해야 한다.
-
----
+현재 브랜치에서 과거 초안 본문을 제거해도 이미 Git history에 들어간 내용이 자동으로 삭제되는 것은 아니다. 실제 민감 정보가 커밋된 경우에는 별도 history purge가 필요하다.
 
 ## 20. 보안 테스트
 
-필수 테스트:
-
-- iOS 잠금 중 Private Store 접근 불가 확인
+- 잠금 중 Private Store 접근 불가 확인
 - DB/WAL/SHM protection class 확인
-- App Group에 private text가 없는지 검사
-- Projection revision 수정 후 승인 자동 승계 금지
+- App Group private text 부재 검사
+- 새 ProjectionRevision에 과거 승인 자동 승계 금지
+- Projection revoke 시 activeAnchor 해제
 - App Switcher privacy cover
-- production log text redaction
-- hard delete 후 SQLite와 App Group에서 잔존 데이터 검사
-- backup 파일에서 평문 문자열 검색 실패 확인
+- production log 원문 redaction
+- hard delete 후 SQLite/App Group 잔존 데이터 검사
+- backup 파일에서 평문 문자열 검색 실패
 - 잘못된 암호 restore 실패
-- 손상된 backup restore 실패
-- restore failure 후 기존 DB 보존
+- 손상 backup restore 실패
+- restore 실패 후 기존 DB 보존

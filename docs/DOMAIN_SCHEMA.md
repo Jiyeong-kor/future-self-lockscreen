@@ -4,18 +4,19 @@
 - 최근 갱신: 2026-09-04
 - 상위 문서: `docs/PRD.md`
 
-이 문서는 데이터 모델, revision, 관계, provenance, 병합, 잠금화면 projection의 정합성 규칙을 정의한다.
+이 문서는 데이터 모델, revision, lifecycle event, 관계, provenance, 병합, 잠금화면 projection의 정합성 규칙을 정의한다.
 
 ## 1. 공통 원칙
 
 1. 사용자에게 보이는 객체는 stable ID를 가진다.
 2. 수정 가능한 의미와 텍스트는 기존 값을 덮어쓰지 않고 새 revision을 만든다.
-3. 과거 결론의 출처와 결과는 모두 당시의 immutable revision 또는 immutable event를 가리킨다.
-4. MeaningNode 사이의 의미 관계와 기록에서 의미가 도출된 causal provenance를 분리한다.
-5. 사용자 삭제 요청은 역사 보존보다 우선한다.
-6. 여러 테이블을 함께 변경하는 의미 있는 동작은 반드시 하나의 DB transaction으로 실행한다.
-7. 현재 상태 조회와 과거 상태 조회를 구분한다.
-8. 같은 stable node가 시간이 지나 revision될 수 있지만 node의 근본 정체성이 달라지는 변경은 새 node로 분리한다.
+3. 과거 결론의 출처와 결과는 당시의 immutable revision 또는 immutable event를 가리킨다.
+4. 상태 변화 이력이 중요한 객체는 lifecycle event를 별도로 저장한다.
+5. MeaningNode 사이의 의미 관계와 기록에서 의미가 도출된 causal provenance를 분리한다.
+6. 사용자 삭제 요청은 역사 보존보다 우선한다.
+7. 여러 테이블을 함께 변경하는 의미 있는 동작은 반드시 하나의 DB transaction으로 실행한다.
+8. 현재 상태 조회와 과거 상태 조회를 구분한다.
+9. 같은 stable node가 시간이 지나 revision될 수 있지만 node의 근본 정체성이 달라지는 변경은 새 node로 분리한다.
 
 ## 2. 공통 식별자와 시각
 
@@ -97,7 +98,7 @@ export type ReflectionItemRevision = {
 };
 ```
 
-ReflectionItem을 다른 ReflectionSession으로 이동하는 기능을 제공할 경우 `sessionId` 변경도 이력으로 보존해야 한다. 초기 구현에서는 생성 이후 session 이동을 허용하지 않고, 필요하면 새 ReflectionItem을 만들거나 별도 migration 동작을 사용한다.
+초기 구현에서는 ReflectionItem 생성 후 다른 session으로 이동하지 않는다. session 이동이 필요해지면 별도 이력 모델을 추가한다.
 
 ## 5. Synthesis
 
@@ -122,7 +123,7 @@ export type SynthesisInsightRevision = {
 };
 ```
 
-하나의 새 SynthesisInsightRevision이 여러 evidence revision/event를 근거로 가질 수 있다.
+Synthesis의 의미 변경은 revision으로 관리한다. status의 장기 변화 이력이 제품에 필요해지면 lifecycle event를 추가하되 revision 원문을 수정하지 않는다.
 
 ## 6. MeaningNode
 
@@ -155,9 +156,6 @@ export type MeaningNode = {
   kind: MeaningNodeKind;
   status: MeaningNodeStatus;
   currentRevisionId: string;
-  retirementReason?: RetirementReason;
-  retiredAt?: string;
-  retirementNote?: string;
   mergedIntoNodeId?: string;
   createdAt: string;
 };
@@ -195,17 +193,40 @@ export type CommitmentRevisionDetail = {
 };
 ```
 
-### 6.1 node identity 경계
+### 6.1 MeaningNode lifecycle
+
+pause, resume, retire, reactivate, archive처럼 반복될 수 있는 상태 변화는 단일 `retiredAt` 필드로 역사 전체를 표현하지 않는다.
+
+```ts
+export type MeaningNodeLifecycleEventType =
+  | 'paused'
+  | 'resumed'
+  | 'retired'
+  | 'reactivated'
+  | 'archived'
+  | 'unarchived';
+
+export type MeaningNodeLifecycleEvent = {
+  id: string;
+  nodeId: string;
+  type: MeaningNodeLifecycleEventType;
+  retirementReason?: RetirementReason;
+  note?: string;
+  createdAt: string;
+};
+```
+
+`MeaningNode.status`는 빠른 현재 조회를 위한 current-state cache이다. lifecycle event를 기록하는 transaction 안에서 함께 갱신한다.
+
+`merged`는 일반 lifecycle 재활성화 대상이 아니다. 병합은 `NodeMergeEvent`로 별도 보존한다.
+
+### 6.2 node identity 경계
 
 revision은 같은 개념의 표현이나 세부 내용을 갱신할 때 사용한다.
 
-사용자가 `사실 이것은 예전 목표와 다른 목표다`라고 판단할 만큼 정체성이 달라졌다면 기존 node를 억지로 revision하지 않는다.
+정체성이 달라졌다면 새 MeaningNode를 만들고 필요하면 `supersedes` 관계를 연결한다.
 
-- 새 MeaningNode 생성
-- 필요하면 `supersedes` 관계 연결
-- 기존 node는 유지 또는 retire
-
-`merge`는 사실상 같은 개념이 중복 생성된 경우에만 사용한다. `supersedes`와 `merge`를 같은 의미로 사용하지 않는다.
+`merge`는 동일하거나 사실상 같은 개념이 중복 생성된 경우에만 사용한다.
 
 ## 7. MeaningRelation
 
@@ -251,17 +272,17 @@ Symmetric:
 
 ### 7.1 conflicts_with canonicalization
 
-두 endpoint ID를 정렬하여 하나의 canonical pair로 저장하고 활성 pair unique constraint를 둔다. A→B와 B→A 두 행을 만들지 않는다.
+두 endpoint ID를 정렬하여 하나의 canonical pair로 저장하고 활성 pair unique constraint를 둔다.
 
 ### 7.2 관계 변경
 
 endpoint 또는 kind가 달라지면 기존 관계를 retire하고 새 관계를 만든다. note 변경은 새 MeaningRelationRevision을 만든다.
 
+retire된 관계를 다시 활성화하는 대신 새 MeaningRelation을 만들어 새로운 연결 시점을 명확히 한다.
+
 ## 8. Revision-level causal provenance
 
 인과 출처 그래프는 stable object가 아니라 immutable revision/event 사이의 그래프이다.
-
-이 구조를 사용하면 같은 Goal의 이전 revision을 근거로 새 revision을 재정의하는 정상적인 의미 변화도 시간 순서대로 표현할 수 있다.
 
 ```ts
 export type EvidenceType =
@@ -288,44 +309,29 @@ export type CausalEvidenceLink = {
 };
 ```
 
-예시:
-
-```text
-CaptureEntryRevision A
-ReflectionItemRevision B
-→ SynthesisInsightRevision X1
-→ GoalRevision G1
-
-GoalRevision G1
-MeaningCheckIn C
-→ GoalRevision G2
-```
-
-G2가 같은 stable Goal의 새 revision이어도 G1보다 뒤의 사건이므로 정상적인 인과 흐름이다.
+같은 stable Goal의 이전 revision이 새 revision의 근거가 되는 것을 허용한다.
 
 ### 8.1 causal cycle 검증
 
 모든 revision/event를 causal vertex로 본다.
 
-새 edge `A → B`를 삽입하기 전에 B에서 A로 이미 도달 가능한 경로가 있는지 검사한다. 존재하면 insert를 거부한다.
+새 edge `A → B`를 삽입하기 전에 B에서 A로 도달 가능한 경로가 있으면 거부한다.
 
 추가 규칙:
 
-- A와 B가 같은 revision/event이면 금지
-- derived revision은 생성 시각이 evidence보다 논리적으로 이전일 수 없음
-- transaction 안에서 여러 edge를 추가할 때는 transaction 후 그래프 전체를 기준으로 검사
-- 여러 Synthesis와 MeaningNode revision을 거치는 간접 cycle도 금지
+- self edge 금지
+- derived revision은 evidence보다 논리적으로 이전일 수 없음
+- 하나의 transaction에서 여러 edge를 추가하면 transaction 후 전체 그래프를 검사
+- 여러 Synthesis와 MeaningNode revision을 거치는 간접 cycle 금지
 
-MeaningRelation의 의미 연결 자체는 causal provenance와 다른 그래프이다. 단, 특정 MeaningRelationRevision을 사용자가 Synthesis 근거로 선택한 경우에는 그 revision이 causal evidence가 될 수 있다.
+MeaningRelation 그래프 자체는 causal graph와 별개이다. 특정 MeaningRelationRevision을 Synthesis 근거로 사용한 경우에만 causal evidence가 된다.
 
 ## 9. OriginMoment
 
 ```ts
-export type OriginSubjectType = 'node' | 'relation';
-
 export type OriginMoment = {
   id: string;
-  subjectType: OriginSubjectType;
+  subjectType: 'node' | 'relation';
   subjectId: string;
   subjectRevisionId: string;
   originalText?: string;
@@ -342,7 +348,7 @@ export type OriginRelationSnapshot = {
 };
 ```
 
-OriginMoment과 snapshot은 생성 후 수정하지 않는다.
+OriginMoment과 snapshot은 immutable이다.
 
 ## 10. MeaningCheckIn
 
@@ -388,9 +394,9 @@ export type ReviewState = {
 
 ## 12. Lockscreen Projection
 
-```ts
-export type ProjectionApprovalStatus = 'draft' | 'approved' | 'revoked';
+공개용 문장 revision 자체는 immutable이다. 승인과 철회는 별도 event로 저장한다.
 
+```ts
 export type LockscreenProjection = {
   id: string;
   commitmentNodeId: string;
@@ -406,16 +412,35 @@ export type LockscreenProjectionRevision = {
   publicSafeMessage: string;
   widgetMessage?: string;
   wallpaperMessage?: string;
-  approvalStatus: ProjectionApprovalStatus;
-  approvedAt?: string;
-  approvalDigest?: string;
+  createdAt: string;
+};
+
+export type ProjectionApprovalEventType = 'approved' | 'revoked';
+
+export type ProjectionApprovalEvent = {
+  id: string;
+  projectionRevisionId: string;
+  type: ProjectionApprovalEventType;
+  approvalDigest: string;
   createdAt: string;
 };
 ```
 
-승인은 ProjectionRevision 단위이다.
+### 12.1 승인 상태 계산
 
-새 ProjectionRevision은 항상 `draft`로 시작한다. 승인 시 canonical payload digest를 저장한다. Commitment가 새 revision으로 바뀌어도 과거 approved Projection은 자동 변경되지 않는다.
+ProjectionRevision은 생성 직후 승인 event가 없으므로 draft로 취급한다.
+
+현재 승인 상태는 해당 revision의 가장 최근 ApprovalEvent로 계산한다.
+
+- latest `approved` → 승인됨
+- latest `revoked` → 철회됨
+- event 없음 → 미승인
+
+승인 시 canonical serialized projection payload의 digest를 저장한다.
+
+Projection 내용 변경은 기존 revision 수정이 아니라 새 revision 생성이다. 새 revision에는 승인 event가 없으므로 자동으로 재승인이 필요하다.
+
+Commitment가 새 revision으로 바뀌어도 과거 approved ProjectionRevision은 자동 변경되지 않는다.
 
 ## 13. activeAnchor
 
@@ -427,7 +452,7 @@ export type LockscreenState = {
 };
 ```
 
-- approved ProjectionRevision만 active 가능
+- latest ApprovalEvent 기준으로 승인된 ProjectionRevision만 active 가능
 - 사용자 명시 동작만 변경 가능
 - 새 Commitment, Review, Synthesis, FocusWindow는 자동 변경 금지
 - active Projection revoke/hard delete 시 같은 transaction에서 anchor 비움
@@ -464,7 +489,7 @@ export type NodeMergeEvent = {
 2. 동일 node 금지
 3. target canonical resolve
 4. merge cycle 검사
-5. source를 `merged` 처리
+5. source status를 `merged` 처리
 6. mergedIntoNodeId 설정
 7. NodeMergeEvent 저장
 
@@ -510,7 +535,9 @@ export type CanvasPlacement = {
 - revision 번호는 object별 unique 및 단조 증가
 - MeaningNode kind 생성 후 변경 금지
 - identity-changing 변경은 새 node + 필요 시 supersedes
-- activeAnchor는 approved ProjectionRevision만 참조
+- MeaningNode.status 변경과 lifecycle event 기록은 같은 transaction
+- activeAnchor는 최신 ApprovalEvent 기준 approved ProjectionRevision만 참조
+- revoke된 active Projection은 같은 transaction에서 anchor 해제
 - merged node는 mergedIntoNodeId 필수
 - merge cycle 금지
 - relation self edge 기본 금지
@@ -522,10 +549,11 @@ export type CanvasPlacement = {
 ## 19. transaction이 필요한 대표 동작
 
 - revision 추가 + currentRevisionId 변경
+- node lifecycle event 추가 + current status 변경
 - relation retire + 대체 relation 생성
-- node retire + retirement metadata
 - node merge
-- Projection approve
+- Projection approval/revoke event 처리
+- revoke와 activeAnchor 정리
 - activeAnchor 변경
 - hard delete cascade
 - backup restore DB swap
@@ -547,6 +575,7 @@ Widget shared container는 DB commit 이후 갱신한다. App Group write 실패
 
 - causal cycle validation
 - revision ordering
+- node lifecycle transition validation
 - canonical node resolve
 - merge cycle validation
 - Projection approval validation

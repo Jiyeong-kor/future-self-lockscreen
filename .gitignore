@@ -1,0 +1,33 @@
+# Future Self private user data
+*.sqlite
+*.sqlite3
+*.db
+*.db-wal
+*.db-shm
+*.sqlite-wal
+*.sqlite-shm
+
+# Local exports / backups
+backups/
+exports/
+debug-exports/
+private-data/
+*.future-self-backup
+*.fsbackup
+
+# Secrets / local environment
+.env
+.env.*
+*.key
+*.pem
+*.p12
+*.mobileprovision
+
+# Logs
+*.log
+logs/
+
+# Local OS / IDE
+.DS_Store
+.idea/
+.vscode/

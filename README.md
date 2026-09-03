@@ -2,22 +2,30 @@
 
 과거에 반복했던 후회를 현재의 행동 기준으로 바꾸고, 사용자가 스스로에게 해주고 싶은 말을 잠금화면에서 자주 보게 만드는 React Native 앱입니다.
 
+단순한 목표 목록이 아니라 사용자가 어떤 행동을 왜 중요하게 생각했는지, 그 이유가 다른 목표와 어떻게 연결되는지, 시간이 지나 그 의미가 어떻게 바뀌었는지까지 축적하는 구조를 지향합니다.
+
 ## 현재 상태
 
 현재 저장소는 제품 기획 단계입니다. 구현 코드는 아직 추가하지 않았습니다.
 
 - 제품 요구사항 문서: [`docs/PRD.md`](docs/PRD.md)
+- 복합 동기와 초심 이력 도메인 설계: [`docs/WHY_GRAPH.md`](docs/WHY_GRAPH.md)
+- 제품 결정 상태: [`docs/OPEN_DECISIONS.md`](docs/OPEN_DECISIONS.md)
 - 구현 시작 예정: 2026년 9월 5일 빅데이터분석기사 필기시험 이후
 
 ## 기본 방향
 
-- React Native + TypeScript
-- iOS 우선 검증, Android 병행 지원
+- React Native Community CLI + TypeScript
+- iOS 우선, WidgetKit 포함
 - 서버 없이 로컬 저장 중심의 MVP
-- 사용자가 입력한 후회, 메시지, 행동 원칙을 잠금화면용 콘텐츠로 변환
-- iOS는 잠금화면용 이미지 생성과 WidgetKit 확장을 단계적으로 지원
-- Android는 잠금화면 배경 직접 적용을 지원하는 네이티브 연동 검토
+- 회고에서 변화 원칙을 만들고 잠금화면에서 상시 노출
+- 목표, 동기, 미래상, 실천을 다대다로 연결하는 Why Graph
+- 최초 결심과 이후 의미 변화 기록을 덮어쓰지 않고 시간순으로 보존
+- iOS는 잠금화면용 이미지 생성과 WidgetKit을 지원
+- Android는 후속으로 잠금화면 배경 직접 적용을 지원
 
 ## 문서
 
 - [PRD](docs/PRD.md)
+- [Why Graph 도메인 설계](docs/WHY_GRAPH.md)
+- [제품 결정 상태](docs/OPEN_DECISIONS.md)

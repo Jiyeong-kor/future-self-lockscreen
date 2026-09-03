@@ -1,55 +1,62 @@
-# Future Self Lockscreen
+# Future Self
 
-과거에 반복했던 후회를 현재의 행동 기준으로 바꾸고, 사용자가 스스로에게 해주고 싶은 말을 잠금화면에서 자주 보게 만드는 React Native 앱입니다.
+평소의 생각과 회고를 쌓고, 시간이 지나 서로 연결하거나 종합하면서 내가 무엇을 왜 중요하게 생각하는지 이해하고, 계속 기억하고 싶은 행동 원칙은 잠금화면에 남기는 개인 의미 관리 앱입니다.
 
-단순한 목표 목록이 아니라 사용자가 어떤 행동을 왜 중요하게 생각했는지, 그 이유가 다른 목표와 어떻게 연결되는지, 시간이 지나 그 의미가 어떻게 바뀌었는지까지 축적하는 구조를 지향합니다.
-
-회고는 후회만 기록하지 않습니다. 잘해서 유지하고 싶은 선택, 새롭게 발견한 욕망과 가치, 방향을 바꾼 전환점과 깨달음도 Why Graph의 출발점으로 보존합니다.
-
-사용자는 평소 한 줄 기록만 남겨도 됩니다. 여러 기록이 쌓인 뒤 함께 보면서 새로운 인사이트를 만들고, 필요할 때만 목표나 행동 원칙으로 연결할 수 있습니다.
+사용자는 처음부터 목표나 행동 계획을 정할 필요가 없습니다. 한 줄 기록만 남겨도 되고, 여러 기록이 쌓인 뒤 새로운 인사이트를 만들 수 있습니다. 목표, 동기, 미래상, 실천, 행동 원칙은 다대다로 연결되며 최초의 이유와 이후의 의미 변화도 시간순으로 보존합니다.
 
 ## 현재 상태
 
-현재 저장소는 제품 기획과 핵심 제품 규칙 확정이 완료된 상태입니다. 구현 코드는 아직 추가하지 않았습니다.
+제품 요구사항과 장기 데이터 구조의 구현 기준선이 확정된 상태입니다. 구현 코드는 아직 추가하지 않았습니다.
 
-- 제품 요구사항 문서: [`docs/PRD.md`](docs/PRD.md)
-- 확정된 v0.4 제품 규칙: [`docs/PRODUCT_RULES_V04.md`](docs/PRODUCT_RULES_V04.md)
-- 복합 동기와 초심 이력 도메인 설계: [`docs/WHY_GRAPH.md`](docs/WHY_GRAPH.md)
-- 회고 입력 모델 설계: [`docs/REFLECTION_MODEL.md`](docs/REFLECTION_MODEL.md)
-- 누적 기록과 2차 인사이트 모델: [`docs/SYNTHESIS_MODEL.md`](docs/SYNTHESIS_MODEL.md)
-- 블록 기반 연결 UX: [`docs/BLOCK_CANVAS.md`](docs/BLOCK_CANVAS.md)
-- 제품 결정 상태: [`docs/OPEN_DECISIONS.md`](docs/OPEN_DECISIONS.md)
-- PRD 레드팀 검토: [`docs/RED_TEAM_REVIEW.md`](docs/RED_TEAM_REVIEW.md)
-- 구현 시작 예정: 2026년 9월 5일 빅데이터분석기사 필기시험 이후
+구현은 2026년 9월 5일 빅데이터분석기사 필기시험 이후 시작할 예정입니다.
 
-기존 문서와 충돌하는 제품 규칙이 있으면 `PRODUCT_RULES_V04.md`를 우선합니다.
+## 구현 기준 문서
+
+다음 세 문서가 현재 구현의 단일 기준입니다.
+
+1. [PRD v1.0](docs/PRD.md)
+2. [Canonical Domain Schema](docs/DOMAIN_SCHEMA.md)
+3. [데이터 생명주기와 보안 규칙](docs/DATA_LIFECYCLE_SECURITY.md)
+
+기존 설계 문서와 충돌하면 위 순서의 기준 문서를 따릅니다.
 
 ## 기본 방향
 
 - React Native Community CLI + TypeScript
 - iOS 우선, WidgetKit 포함
-- 서버 없이 로컬 저장 중심의 MVP
-- 홈은 연말 회고가 아니라 빠른 기록 중심
-- 회고에서 필요한 경우 변화 원칙을 만들고 잠금화면에서 상시 보존
-- 후회뿐 아니라 잘한 점, 욕망, 발견, 전환점, 깨달음을 회고 데이터로 보존
-- 여러 기록을 나중에 묶어 2차 인사이트를 만들 수 있는 Synthesis 구조
-- 목표, 동기, 미래상, 실천을 다대다로 연결하는 Why Graph
-- 스크래치처럼 블록을 드래그해 의미 있는 슬롯에 연결하는 Focus Board
-- 최초 결심과 이후 의미 변화 기록을 덮어쓰지 않고 시간순으로 보존
-- 잠금화면에는 사용자가 명시적으로 승인한 공개용 문장만 표시
-- Widget App Group에는 전체 개인 데이터가 아니라 최소 공개 Projection만 공유
-- 하나의 대표 잠금화면 문장과 별도의 Review Queue를 분리
-- iOS는 잠금화면용 이미지 생성과 WidgetKit을 지원
-- Android는 후속으로 잠금화면 배경 직접 적용을 지원
-- 장기 사용 전에 암호화된 수동 백업과 복원을 제공
+- 서버 없이 로컬 저장 중심
+- 빠른 기록 중심 홈
+- 후회뿐 아니라 잘한 점, 욕망, 발견, 전환점, 깨달음을 기록
+- 여러 기록을 나중에 묶어 새 인사이트를 만드는 Synthesis
+- Motive, Vision, Goal, Practice, Commitment를 다대다로 연결하는 Why Graph
+- 모든 수정은 revision으로 보존하여 과거 근거가 소급 변경되지 않도록 처리
+- Synthesis와 MeaningNode 전체에 걸친 causal provenance cycle 방지
+- Focus Board와 Block Tray 기반의 블록 연결 UX
+- Drag and Drop과 동등한 탭 기반 접근성 흐름 제공
+- 최초 결심과 의미 변화 기록 보존
+- 사용자가 직접 선택한 대표 잠금화면 문장만 사용
+- 잠금화면에는 사용자가 명시적으로 승인한 공개용 Projection만 표시
+- Private Store와 Widget App Group 데이터 분리
+- iOS Private Store에 강한 Data Protection 적용
+- 하나의 대표 문장과 부담을 주지 않는 Review Resurfacing 분리
+- 중복 의미 병합 시 과거 관계를 재작성하지 않고 canonical node로 resolve
+- 종료 이유와 삭제를 구분
+- 암호화 수동 백업과 검증 후 원자적 복원
+- Android는 공통 도메인 안정화 이후 후속 지원
 
-## 문서
+## 설계 이력 문서
 
-- [PRD](docs/PRD.md)
+다음 문서는 제품이 현재 구조에 도달한 과정과 세부 아이디어를 보존하는 참고 자료입니다. 구현 규칙의 최종 권위는 아닙니다.
+
 - [v0.4 제품 규칙](docs/PRODUCT_RULES_V04.md)
-- [Why Graph 도메인 설계](docs/WHY_GRAPH.md)
+- [Why Graph 초기 설계](docs/WHY_GRAPH.md)
 - [회고 입력 모델 설계](docs/REFLECTION_MODEL.md)
 - [누적 기록과 2차 인사이트 모델](docs/SYNTHESIS_MODEL.md)
 - [블록 기반 연결 UX](docs/BLOCK_CANVAS.md)
 - [제품 결정 상태](docs/OPEN_DECISIONS.md)
-- [PRD 레드팀 검토](docs/RED_TEAM_REVIEW.md)
+- [1차 레드팀 검토](docs/RED_TEAM_REVIEW.md)
+- [2차 레드팀 검토](docs/RED_TEAM_REVIEW_V2.md)
+
+## Public 저장소 주의
+
+이 저장소에는 실제 개인 회고 데이터, 실사용 SQLite DB, 실제 export 파일, 개인 원문 fixture, 개인 텍스트가 노출된 스크린샷, 암호화 키를 커밋하지 않습니다. 테스트와 문서 예시는 가상 데이터를 사용합니다.

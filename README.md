@@ -14,9 +14,9 @@
 
 다음 세 문서가 현재 구현의 단일 기준입니다.
 
-1. [PRD v1.0](docs/PRD.md)
+1. [PRD v1.1](docs/PRD.md)
 2. [Canonical Domain Schema](docs/DOMAIN_SCHEMA.md)
-3. [데이터 생명주기와 보안 규칙](docs/DATA_LIFECYCLE_SECURITY.md)
+3. [데이터 생명주기와 보안 규칙 v1.1](docs/DATA_LIFECYCLE_SECURITY.md)
 
 기존 설계 문서와 충돌하면 위 순서의 기준 문서를 따릅니다.
 
@@ -30,18 +30,28 @@
 - 여러 기록을 나중에 묶어 새 인사이트를 만드는 Synthesis
 - Motive, Vision, Goal, Practice, Commitment를 다대다로 연결하는 Why Graph
 - 모든 수정은 revision으로 보존하여 과거 근거가 소급 변경되지 않도록 처리
+- 특정 시점의 생각과 연결 상태를 다시 보는 시간 여행 기능
+- 장기 기록을 다시 찾는 통합 검색과 필터
 - Synthesis와 MeaningNode 전체에 걸친 causal provenance cycle 방지
 - Focus Board와 Block Tray 기반의 블록 연결 UX
 - Drag and Drop과 동등한 탭 기반 접근성 흐름 제공
+- 기능을 한꺼번에 교육하지 않는 Progressive Disclosure 온보딩
 - 최초 결심과 의미 변화 기록 보존
 - 사용자가 직접 선택한 대표 잠금화면 문장만 사용
 - 잠금화면에는 사용자가 명시적으로 승인한 공개용 Projection만 표시
 - Private Store와 Widget App Group 데이터 분리
-- iOS Private Store에 강한 Data Protection 적용
-- 하나의 대표 문장과 부담을 주지 않는 Review Resurfacing 분리
+- iOS Private Store와 검색 인덱스에 강한 Data Protection 적용
+- 선택적 Face ID, Touch ID 또는 시스템 인증 기반 앱 잠금
+- 하나의 대표 문장과 설명 가능한 Review Resurfacing 분리
 - 중복 의미 병합 시 과거 관계를 재작성하지 않고 canonical node로 resolve
 - 종료 이유와 삭제를 구분
 - 암호화 수동 백업과 검증 후 원자적 복원
+- 선택한 기록을 사람이 읽을 수 있는 형태로 내보내는 데이터 이동권
+- App Intents와 App Shortcuts를 이용한 후속 빠른 기록 진입점
+- 개인 원문을 Spotlight에 자동 색인하지 않음
+- 실제 실행 일정은 필요할 때 Reminders, Calendar, Shortcuts 등 외부 실행 도구와 연결
+- Future Self 자체는 할 일 또는 습관 추적 앱으로 확장하지 않음
+- 장기 사용을 가정한 대규모 합성 데이터 성능 검증
 - Android는 공통 도메인 안정화 이후 후속 지원
 
 ## 설계 이력 문서

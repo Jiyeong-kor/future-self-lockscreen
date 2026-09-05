@@ -20,6 +20,11 @@
 
 기존 설계 문서와 충돌하면 위 순서의 기준 문서를 따릅니다.
 
+제품 경험 안전 규칙으로는 다음 문서를 함께 사용합니다.
+
+- [잠금화면 승인과 의미 재확인 정책](docs/LOCKSCREEN_APPROVAL_POLICY.md)
+- [복귀와 재노출 안전 정책](docs/RETURN_AND_RESURFACING_POLICY.md)
+
 ## 기본 방향
 
 - React Native Community CLI + TypeScript
@@ -39,6 +44,8 @@
 - 최초 결심과 의미 변화 기록 보존
 - 사용자가 직접 선택한 대표 잠금화면 문장만 사용
 - 잠금화면에는 사용자가 명시적으로 승인한 공개용 Projection만 표시
+- 공개 문장 내용 변경과 단순 스타일 변경을 구분하고, 의미 재확인은 별도의 선택 이력으로 처리
+- 같은 문장의 의미 재확인을 주기적으로 강제하지 않음
 - Private Store와 Widget App Group 데이터 분리
 - iOS Private Store와 검색 인덱스에 강한 Data Protection 적용
 - 선택적 Face ID, Touch ID 또는 시스템 인증 기반 앱 잠금
@@ -66,6 +73,7 @@
 - [제품 결정 상태](docs/OPEN_DECISIONS.md)
 - [1차 레드팀 검토](docs/RED_TEAM_REVIEW.md)
 - [2차 레드팀 검토](docs/RED_TEAM_REVIEW_V2.md)
+- [제품 기획 레드팀 검토](docs/RED_TEAM_PRODUCT_STRATEGY_V1.md)
 
 ## Public 저장소 주의
 

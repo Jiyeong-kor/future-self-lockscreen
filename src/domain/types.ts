@@ -1,6 +1,89 @@
 export type EntityId = string;
 export type IsoDateTime = string;
 
+export type CaptureEntryKind =
+  | 'thought'
+  | 'event'
+  | 'observation'
+  | 'question'
+  | 'quote_to_self';
+
+export interface CaptureEntry {
+  id: EntityId;
+  currentRevisionId: EntityId;
+  createdAt: IsoDateTime;
+}
+
+export interface CaptureEntryRevision {
+  id: EntityId;
+  entryId: EntityId;
+  revision: number;
+  kind: CaptureEntryKind;
+  content: string;
+  occurredAt?: IsoDateTime;
+  tags: string[];
+  createdAt: IsoDateTime;
+}
+
+export interface ReflectionSession {
+  id: EntityId;
+  title: string;
+  startDate: string;
+  endDate: string;
+  createdAt: IsoDateTime;
+  updatedAt: IsoDateTime;
+}
+
+export type ReflectionItemKind =
+  | 'regret'
+  | 'win'
+  | 'desire'
+  | 'discovery'
+  | 'turning_point'
+  | 'insight';
+
+export interface ReflectionItem {
+  id: EntityId;
+  sessionId: EntityId;
+  currentRevisionId: EntityId;
+  createdAt: IsoDateTime;
+}
+
+export interface ReflectionItemRevision {
+  id: EntityId;
+  itemId: EntityId;
+  revision: number;
+  kind: ReflectionItemKind;
+  title?: string;
+  content: string;
+  context?: string;
+  cause?: string;
+  consequence?: string;
+  lesson?: string;
+  tags: string[];
+  occurredAt?: IsoDateTime;
+  createdAt: IsoDateTime;
+}
+
+export type SynthesisStatus = 'active' | 'uncertain' | 'retired';
+
+export interface SynthesisInsight {
+  id: EntityId;
+  currentRevisionId: EntityId;
+  status: SynthesisStatus;
+  createdAt: IsoDateTime;
+}
+
+export interface SynthesisInsightRevision {
+  id: EntityId;
+  insightId: EntityId;
+  revision: number;
+  title?: string;
+  statement: string;
+  context?: string;
+  createdAt: IsoDateTime;
+}
+
 export type MeaningNodeKind =
   | 'unclassified'
   | 'motive'

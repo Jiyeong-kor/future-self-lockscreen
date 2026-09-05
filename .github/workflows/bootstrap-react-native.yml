@@ -1,0 +1,74 @@
+name: Bootstrap React Native
+
+on:
+  push:
+    paths:
+      - .github/workflows/bootstrap-react-native.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  bootstrap:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Generate React Native 0.87 project
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [ -f package.json ]; then
+            echo "package.json already exists; skipping project generation"
+          else
+            npx --yes @react-native-community/cli@latest init FutureSelf \
+              --version 0.87.0 \
+              --pm npm \
+              --skip-install \
+              --install-pods false \
+              --skip-git-init true
+
+            rsync -a \
+              --exclude='.git' \
+              --exclude='README.md' \
+              --exclude='.gitignore' \
+              FutureSelf/ ./
+
+            {
+              cat .gitignore
+              printf '\n# React Native generated defaults\n'
+              cat FutureSelf/.gitignore
+            } | awk '!seen[$0]++' > .gitignore.merged
+            mv .gitignore.merged .gitignore
+
+            rm -rf FutureSelf
+          fi
+
+      - name: Remove one-shot bootstrap workflow
+        run: git rm --ignore-unmatch .github/workflows/bootstrap-react-native.yml
+
+      - name: Commit generated project
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No generated changes"
+            exit 0
+          fi
+          git commit -m "chore: React Native 0.87 프로젝트 초기화"
+          git push origin HEAD:main

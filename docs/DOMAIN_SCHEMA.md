@@ -1,7 +1,7 @@
 # Future Self canonical domain schema
 
 - 상태: 구현 기준선
-- 최근 갱신: 2026-09-04
+- 최근 갱신: 2026-09-05
 - 상위 문서: `docs/PRD.md`
 
 이 문서는 데이터 모델, revision, lifecycle event, 관계, provenance, 병합, 잠금화면 projection의 정합성 규칙을 정의한다.
@@ -17,6 +17,7 @@
 7. 여러 테이블을 함께 변경하는 의미 있는 동작은 반드시 하나의 DB transaction으로 실행한다.
 8. 현재 상태 조회와 과거 상태 조회를 구분한다.
 9. 같은 stable node가 시간이 지나 revision될 수 있지만 node의 근본 정체성이 달라지는 변경은 새 node로 분리한다.
+10. 분류되지 않은 MeaningNode는 미완료 상태가 아니라 정상적인 영구 상태이다.
 
 ## 2. 공통 식별자와 시각
 
@@ -129,6 +130,7 @@ Synthesis의 의미 변경은 revision으로 관리한다. status의 장기 변�
 
 ```ts
 export type MeaningNodeKind =
+  | 'unclassified'
   | 'motive'
   | 'vision'
   | 'goal'
@@ -170,7 +172,9 @@ export type MeaningNodeRevision = {
 };
 ```
 
-종류별 detail은 revision ID와 1:1로 저장한다.
+`unclassified`는 정상적인 MeaningNode kind이며 기간 제한 없이 유지할 수 있다.
+
+종류별 detail은 revision ID와 1:1로 저장한다. `unclassified` revision은 종류별 detail을 요구하지 않는다.
 
 ```ts
 export type MotiveRevisionDetail = { nodeRevisionId: string };
@@ -193,7 +197,45 @@ export type CommitmentRevisionDetail = {
 };
 ```
 
-### 6.1 MeaningNode lifecycle
+### 6.1 MeaningNode classification
+
+사용자는 MeaningNode를 `unclassified`로 생성하고 영구적으로 그대로 둘 수 있다.
+
+나중에 사용자가 원하면 같은 stable node를 한 번 분류할 수 있다.
+
+```ts
+export type ClassifiedMeaningNodeKind = Exclude<
+  MeaningNodeKind,
+  'unclassified'
+>;
+
+export type MeaningNodeClassificationEvent = {
+  id: string;
+  nodeId: string;
+  fromKind: 'unclassified';
+  toKind: ClassifiedMeaningNodeKind;
+  createdAt: string;
+};
+```
+
+분류 transaction:
+
+1. 현재 kind가 `unclassified`인지 확인
+2. 선택한 typed kind의 필수 detail 검증
+3. 필요하면 새 MeaningNodeRevision 생성
+4. MeaningNodeClassificationEvent 저장
+5. `MeaningNode.kind` current-state cache 갱신
+
+규칙:
+
+- `unclassified → typed`는 허용한다.
+- 분류하지 않고 계속 `unclassified`로 유지하는 것도 정상 상태이다.
+- typed kind에서 다른 typed kind로 직접 변경하지 않는다.
+- typed kind를 다시 `unclassified`로 되돌리지 않는다.
+- typed kind의 근본 정체성이 달라졌다면 새 MeaningNode를 만들고 필요하면 `supersedes`로 연결한다.
+- 분류 전 과거 시점에서는 해당 node를 `unclassified`로 재구성할 수 있어야 한다.
+
+### 6.2 MeaningNode lifecycle
 
 pause, resume, retire, reactivate, archive처럼 반복될 수 있는 상태 변화는 단일 `retiredAt` 필드로 역사 전체를 표현하지 않는다.
 
@@ -220,7 +262,7 @@ export type MeaningNodeLifecycleEvent = {
 
 `merged`는 일반 lifecycle 재활성화 대상이 아니다. 병합은 `NodeMergeEvent`로 별도 보존한다.
 
-### 6.2 node identity 경계
+### 6.3 node identity 경계
 
 revision은 같은 개념의 표현이나 세부 내용을 갱신할 때 사용한다.
 
@@ -270,6 +312,8 @@ Symmetric:
 
 - `conflicts_with`
 
+`unclassified` MeaningNode는 generic semantic relation인 `supports`, `conflicts_with`, `supersedes`에 참여할 수 있다. kind 의미가 필요한 typed relation은 분류 이후에만 생성한다.
+
 ### 7.1 conflicts_with canonicalization
 
 두 endpoint ID를 정렬하여 하나의 canonical pair로 저장하고 활성 pair unique constraint를 둔다.
@@ -279,6 +323,39 @@ Symmetric:
 endpoint 또는 kind가 달라지면 기존 관계를 retire하고 새 관계를 만든다. note 변경은 새 MeaningRelationRevision을 만든다.
 
 retire된 관계를 다시 활성화하는 대신 새 MeaningRelation을 만들어 새로운 연결 시점을 명확히 한다.
+
+### 7.3 Trade-off Reflection
+
+`conflicts_with` 관계는 해결을 요구하지 않는다. 사용자가 원할 때만 당시의 선택 맥락을 별도 immutable event로 남길 수 있다.
+
+```ts
+export type TradeoffPriority =
+  | 'from'
+  | 'to'
+  | 'balanced'
+  | 'undecided';
+
+export type TradeoffReflection = {
+  id: string;
+  conflictRelationId: string;
+  conflictRelationRevisionId: string;
+  whyBothMatter?: string;
+  currentPriority?: TradeoffPriority;
+  tradeoffCost?: string;
+  revisitAt?: string;
+  note?: string;
+  createdAt: string;
+};
+```
+
+규칙:
+
+- 대상 relation은 `conflicts_with`여야 한다.
+- 모든 본문 필드는 선택 사항이다.
+- `undecided` 또는 currentPriority 미지정도 정상 저장 상태이다.
+- 앱은 `from` 또는 `to` 중 하나를 필수 선택하게 하지 않는다.
+- 같은 갈등 관계에 여러 TradeoffReflection을 시간순으로 남길 수 있다.
+- 과거 Reflection은 수정하지 않는다. 새 판단은 새 event로 남긴다.
 
 ## 8. Revision-level causal provenance
 
@@ -292,7 +369,8 @@ export type EvidenceType =
   | 'meaning_node_revision'
   | 'meaning_relation_revision'
   | 'origin_moment'
-  | 'meaning_check_in';
+  | 'meaning_check_in'
+  | 'tradeoff_reflection';
 
 export type DerivedRevisionType =
   | 'synthesis_revision'
@@ -324,7 +402,7 @@ export type CausalEvidenceLink = {
 - 하나의 transaction에서 여러 edge를 추가하면 transaction 후 전체 그래프를 검사
 - 여러 Synthesis와 MeaningNode revision을 거치는 간접 cycle 금지
 
-MeaningRelation 그래프 자체는 causal graph와 별개이다. 특정 MeaningRelationRevision을 Synthesis 근거로 사용한 경우에만 causal evidence가 된다.
+MeaningRelation 그래프 자체는 causal graph와 별개이다. 특정 MeaningRelationRevision 또는 TradeoffReflection을 Synthesis 근거로 사용한 경우에만 causal evidence가 된다.
 
 ## 9. OriginMoment
 
@@ -386,11 +464,14 @@ export type ReviewState = {
   subjectNodeId: string;
   lastReviewedAt?: string;
   snoozedUntil?: string;
+  isResurfacingExcluded?: boolean;
   updatedAt: string;
 };
 ```
 
 홈에는 후보를 최대 3개만 노출한다.
+
+`isResurfacingExcluded=true`인 node는 자동 Review 후보와 복귀 Snapshot 후보에서 제외한다. 사용자가 검색이나 명시적 탐색으로 직접 여는 것은 허용한다.
 
 ## 12. Lockscreen Projection
 
@@ -533,9 +614,17 @@ export type CanvasPlacement = {
 
 - currentRevisionId는 동일 stable object의 revision만 참조
 - revision 번호는 object별 unique 및 단조 증가
-- MeaningNode kind 생성 후 변경 금지
+- MeaningNode는 `unclassified`로 생성 가능하고 영구 유지 가능
+- MeaningNode kind 변경은 `unclassified → typed` 1회 분류만 허용
+- typed kind에서 다른 typed kind로 직접 변경 금지
+- typed kind에서 `unclassified`로 회귀 금지
+- MeaningNode classification event와 current kind 갱신은 같은 transaction
 - identity-changing 변경은 새 node + 필요 시 supersedes
 - MeaningNode.status 변경과 lifecycle event 기록은 같은 transaction
+- typed detail은 해당 MeaningNode kind와 일치해야 함
+- typed relation은 필요한 kind가 분류된 뒤에만 생성
+- TradeoffReflection 대상은 `conflicts_with` relation만 허용
+- TradeoffReflection은 결론 또는 우선순위 필수 아님
 - activeAnchor는 최신 ApprovalEvent 기준 approved ProjectionRevision만 참조
 - revoke된 active Projection은 같은 transaction에서 anchor 해제
 - merged node는 mergedIntoNodeId 필수
@@ -545,10 +634,12 @@ export type CanvasPlacement = {
 - causal provenance cycle 금지
 - derived revision의 causal source는 미래 revision/event일 수 없음
 - retired relation은 현재 graph traversal 기본 결과에서 제외
+- resurfacing excluded node는 자동 Review/복귀 후보에서 제외
 
 ## 19. transaction이 필요한 대표 동작
 
 - revision 추가 + currentRevisionId 변경
+- MeaningNode `unclassified → typed` classification event + current kind 변경
 - node lifecycle event 추가 + current status 변경
 - relation retire + 대체 relation 생성
 - node merge
@@ -575,8 +666,11 @@ Widget shared container는 DB commit 이후 갱신한다. App Group write 실패
 
 - causal cycle validation
 - revision ordering
+- MeaningNode classification transition validation
 - node lifecycle transition validation
+- relation kind compatibility validation
 - canonical node resolve
 - merge cycle validation
 - Projection approval validation
 - activeAnchor validation
+- resurfacing exclusion validation

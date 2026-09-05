@@ -80,7 +80,7 @@ export function HomeScreen({repository}: HomeScreenProps) {
   }, [captureRepository, content, isSaving, loadRecent]);
 
   return (
-    <View style={[styles.screen, {backgroundColor: colors.background}]}> 
+    <View style={[styles.screen, {backgroundColor: colors.background}]}>
       <FlatList
         data={recent}
         keyExtractor={item => item.id}
@@ -111,7 +111,7 @@ export function HomeScreen({repository}: HomeScreenProps) {
                 maxLength={4000}
               />
               <View style={styles.captureActions}>
-                <Text style={[styles.hint, {color: colors.secondaryText}]}>한 줄만 적고 닫아도 됩니다</Text>
+                <Text style={[styles.hint, {color: colors.secondaryText}]}>적고 바로 닫을 수 있어요</Text>
                 <Pressable
                   accessibilityRole="button"
                   accessibilityLabel="기록 저장"
@@ -137,7 +137,7 @@ export function HomeScreen({repository}: HomeScreenProps) {
             </View>
 
             {errorMessage !== null ? (
-              <Text accessibilityRole="alert" style={[styles.error, {color: colors.error}]}> 
+              <Text accessibilityRole="alert" style={[styles.error, {color: colors.error}]}>
                 {errorMessage}
               </Text>
             ) : null}

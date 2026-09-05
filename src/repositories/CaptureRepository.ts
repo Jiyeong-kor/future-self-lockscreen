@@ -4,7 +4,6 @@ import type {
   CaptureEntryKind,
   CaptureEntryRevision,
 } from '../domain';
-import {getPrivateDatabase} from '../database/privateDatabase';
 import type {SqlDatabase, SqlValue} from '../database/types';
 import {generateUuidV4} from '../security/secureRandom';
 
@@ -41,6 +40,11 @@ export interface CaptureRepositoryDependencies {
   now?: () => string;
 }
 
+async function defaultDatabaseProvider(): Promise<SqlDatabase> {
+  const {getPrivateDatabase} = await import('../database/privateDatabase');
+  return getPrivateDatabase();
+}
+
 function normalizeTags(tags: readonly string[] | undefined): string[] {
   if (tags === undefined) {
     return [];
@@ -68,7 +72,8 @@ export class SqlCaptureRepository implements CaptureRepository {
 
   constructor(dependencies: CaptureRepositoryDependencies = {}) {
     this.database = dependencies.database;
-    this.databaseProvider = dependencies.databaseProvider ?? getPrivateDatabase;
+    this.databaseProvider =
+      dependencies.databaseProvider ?? defaultDatabaseProvider;
     this.idGenerator = dependencies.idGenerator ?? generateUuidV4;
     this.now = dependencies.now ?? (() => new Date().toISOString());
   }

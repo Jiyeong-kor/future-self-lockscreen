@@ -1,5 +1,3 @@
-import 'react-native-get-random-values';
-
 type CryptoProvider = {
   getRandomValues<T extends ArrayBufferView>(array: T): T;
 };

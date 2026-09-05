@@ -1,8 +1,8 @@
 import React, {useCallback, useEffect, useMemo, useState} from 'react';
 import {
   ActivityIndicator,
-  FlatList,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -81,91 +81,88 @@ export function HomeScreen({repository}: HomeScreenProps) {
 
   return (
     <View style={[styles.screen, {backgroundColor: colors.background}]}>
-      <FlatList
-        data={recent}
-        keyExtractor={item => item.id}
+      <ScrollView
         keyboardShouldPersistTaps="handled"
-        contentContainerStyle={styles.content}
-        ListHeaderComponent={
-          <View>
-            <Text style={[styles.eyebrow, {color: colors.secondaryText}]}>Future Self</Text>
-            <Text style={[styles.title, {color: colors.text}]}>지금의 생각</Text>
+        contentContainerStyle={styles.content}>
+        <Text style={[styles.eyebrow, {color: colors.secondaryText}]}>Future Self</Text>
+        <Text style={[styles.title, {color: colors.text}]}>지금의 생각</Text>
 
-            <View
-              style={[
-                styles.captureCard,
+        <View
+          style={[
+            styles.captureCard,
+            {
+              backgroundColor: colors.card,
+              borderColor: colors.border,
+            },
+          ]}>
+          <TextInput
+            accessibilityLabel="빠른 기록"
+            multiline
+            placeholder="지금 떠오르는 생각"
+            placeholderTextColor={colors.placeholder}
+            value={content}
+            onChangeText={setContent}
+            style={[styles.input, {color: colors.text}]}
+            textAlignVertical="top"
+            maxLength={4000}
+          />
+          <View style={styles.captureActions}>
+            <Text style={[styles.hint, {color: colors.secondaryText}]}>적고 바로 닫을 수 있어요</Text>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="기록 저장"
+              disabled={content.trim().length === 0 || isSaving}
+              onPress={() => void save()}
+              style={({pressed}) => [
+                styles.saveButton,
                 {
-                  backgroundColor: colors.card,
-                  borderColor: colors.border,
+                  backgroundColor:
+                    content.trim().length === 0 || isSaving
+                      ? colors.disabled
+                      : colors.accent,
+                  opacity: pressed ? 0.75 : 1,
                 },
               ]}>
-              <TextInput
-                accessibilityLabel="빠른 기록"
-                multiline
-                placeholder="지금 떠오르는 생각"
-                placeholderTextColor={colors.placeholder}
-                value={content}
-                onChangeText={setContent}
-                style={[styles.input, {color: colors.text}]}
-                textAlignVertical="top"
-                maxLength={4000}
-              />
-              <View style={styles.captureActions}>
-                <Text style={[styles.hint, {color: colors.secondaryText}]}>적고 바로 닫을 수 있어요</Text>
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel="기록 저장"
-                  disabled={content.trim().length === 0 || isSaving}
-                  onPress={() => void save()}
-                  style={({pressed}) => [
-                    styles.saveButton,
-                    {
-                      backgroundColor:
-                        content.trim().length === 0 || isSaving
-                          ? colors.disabled
-                          : colors.accent,
-                      opacity: pressed ? 0.75 : 1,
-                    },
-                  ]}>
-                  {isSaving ? (
-                    <ActivityIndicator size="small" color={colors.buttonText} />
-                  ) : (
-                    <Text style={[styles.saveButtonText, {color: colors.buttonText}]}>저장</Text>
-                  )}
-                </Pressable>
-              </View>
-            </View>
-
-            {errorMessage !== null ? (
-              <Text accessibilityRole="alert" style={[styles.error, {color: colors.error}]}>
-                {errorMessage}
-              </Text>
-            ) : null}
-
-            {isLoading ? (
-              <View style={styles.loadingRow}>
-                <ActivityIndicator size="small" color={colors.secondaryText} />
-              </View>
-            ) : recent.length > 0 ? (
-              <Text style={[styles.sectionTitle, {color: colors.text}]}>최근 기록</Text>
-            ) : null}
+              {isSaving ? (
+                <ActivityIndicator size="small" color={colors.buttonText} />
+              ) : (
+                <Text style={[styles.saveButtonText, {color: colors.buttonText}]}>저장</Text>
+              )}
+            </Pressable>
           </View>
-        }
-        renderItem={({item}) => (
-          <View
-            style={[
-              styles.recordCard,
-              {backgroundColor: colors.card, borderColor: colors.border},
-            ]}>
-            <Text style={[styles.recordText, {color: colors.text}]} numberOfLines={4}>
-              {item.content}
-            </Text>
-            <Text style={[styles.recordDate, {color: colors.secondaryText}]}>
-              {formatDate(item.createdAt)}
-            </Text>
+        </View>
+
+        {errorMessage !== null ? (
+          <Text accessibilityRole="alert" style={[styles.error, {color: colors.error}]}>
+            {errorMessage}
+          </Text>
+        ) : null}
+
+        {isLoading ? (
+          <View style={styles.loadingRow}>
+            <ActivityIndicator size="small" color={colors.secondaryText} />
           </View>
-        )}
-      />
+        ) : recent.length > 0 ? (
+          <>
+            <Text style={[styles.sectionTitle, {color: colors.text}]}>최근 기록</Text>
+            {recent.map(item => (
+              <View
+                key={item.id}
+                style={[
+                  styles.recordCard,
+                  {backgroundColor: colors.card, borderColor: colors.border},
+                ]}>
+                <Text style={[styles.recordText, {color: colors.text}]} numberOfLines={4}>
+                  {item.content}
+                </Text>
+                <Text style={[styles.recordDate, {color: colors.secondaryText}]}>
+                  {formatDate(item.createdAt)}
+                </Text>
+              </View>
+            ))}
+          </>
+        ) : null}
+      </ScrollView>
     </View>
   );
 }

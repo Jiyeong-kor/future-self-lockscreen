@@ -1,4 +1,5 @@
-import React, {useCallback, useEffect, useMemo, useState} from 'react';
+import React, {useCallback, useMemo, useState} from 'react';
+import {useFocusEffect} from '@react-navigation/native';
 import {
   ActivityIndicator,
   FlatList,
@@ -39,6 +40,7 @@ export function RecordsScreen({repository}: RecordsScreenProps) {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const load = useCallback(async () => {
+    setIsLoading(true);
     try {
       const result = await captureRepository.getRecent(100);
       setRecords(result);
@@ -50,9 +52,11 @@ export function RecordsScreen({repository}: RecordsScreenProps) {
     }
   }, [captureRepository]);
 
-  useEffect(() => {
-    void load();
-  }, [load]);
+  useFocusEffect(
+    useCallback(() => {
+      void load();
+    }, [load]),
+  );
 
   return (
     <View style={[styles.screen, {backgroundColor: colors.background}]}>

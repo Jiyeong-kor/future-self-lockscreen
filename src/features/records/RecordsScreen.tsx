@@ -72,7 +72,7 @@ export function RecordsScreen({repository, meaningRepository}: RecordsScreenProp
           </View>
         }
         ListEmptyComponent={!isLoading && errorMessage === null ?
-          <Text style={{color: colors.secondaryText}}>아직 저장한 기록이 없습니다.</Text> : null}
+          <Text style={{color: colors.secondaryText}}>아직 저장한 기록이 없습니다.</Text> : undefined}
         renderItem={({item}) => (
           <View style={[styles.recordCard, {backgroundColor: colors.card, borderColor: colors.border}]}>
             <Text selectable style={[styles.recordText, {color: colors.text}]}>{item.content}</Text>

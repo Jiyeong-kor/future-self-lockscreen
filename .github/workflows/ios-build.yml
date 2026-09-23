@@ -1,0 +1,68 @@
+name: iOS Build
+
+on:
+  workflow_call:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  simulator-build:
+    runs-on: macos-latest
+    timeout-minutes: 40
+    env:
+      RCT_NO_LAUNCH_PACKAGER: '1'
+      FORCE_BUNDLING: '1'
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Record build environment
+        run: |
+          sw_vers
+          xcodebuild -version
+          xcodebuild -showsdks
+          node --version
+          npm --version
+      - name: Install JavaScript dependencies
+        run: npm ci
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3'
+          bundler-cache: true
+      - name: Install CocoaPods dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          bundle exec pod install --project-directory=ios 2>&1 | tee "$RUNNER_TEMP/future-self-pods.log"
+      - name: Build iOS Simulator target
+        shell: bash
+        run: |
+          set -euo pipefail
+          export NODE_BINARY="$(command -v node)"
+          xcodebuild \
+            -workspace ios/FutureSelf.xcworkspace \
+            -scheme FutureSelf \
+            -configuration Debug \
+            -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath "$RUNNER_TEMP/future-self-derived" \
+            CODE_SIGNING_ALLOWED=NO \
+            build 2>&1 | tee "$RUNNER_TEMP/future-self-ios-build.log"
+      - name: Preserve native build diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-build-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/future-self-pods.log
+            ${{ runner.temp }}/future-self-ios-build.log
+            Gemfile.lock
+            ios/Podfile.lock
+          retention-days: 7
+          if-no-files-found: warn

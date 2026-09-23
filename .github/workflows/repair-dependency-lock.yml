@@ -23,32 +23,36 @@ jobs:
         with:
           node-version: '22'
           cache: npm
-      - name: Inspect dependency paths and prepare a compatible candidate
+      - name: Resolve compatible dependency candidate
         shell: bash
         run: |
           set -euo pipefail
           trap 'git diff -- package-lock.json > "$RUNNER_TEMP/lockfile-candidate.diff"' EXIT
           npm ci --ignore-scripts
-          node <<'NODE' | tee "$RUNNER_TEMP/dependency-paths.txt"
-          const lock = require('./package-lock.json');
-          const targets = ['image-size', 'metro', 'metro-config', 'metro-transform-worker', '@react-navigation/core', 'query-string', 'decode-uri-component'];
-          for (const [name, info] of Object.entries(lock.packages)) {
-            if (targets.some(target => name.endsWith('/' + target)) ||
-                Object.keys(info.dependencies || {}).some(name => targets.includes(name))) {
-              console.log(JSON.stringify({path: name, version: info.version, dependencies: info.dependencies}));
-            }
-          }
-          NODE
           for package in image-size metro metro-config metro-transform-worker; do
             echo "Registry metadata: $package" >> "$RUNNER_TEMP/registry-metadata.txt"
             npm view "$package" version dependencies repository --json >> "$RUNNER_TEMP/registry-metadata.txt"
           done
-          # 중간 수정 명령의 미해결 취약점은 기록한다. 최종 audit 게이트는 아래에서 반드시 통과해야 한다.
           fix_status=0
           npm audit fix --package-lock-only --ignore-scripts > "$RUNNER_TEMP/audit-fix.txt" 2>&1 || fix_status=$?
           cat "$RUNNER_TEMP/audit-fix.txt"
           if (( fix_status > 1 )); then exit "$fix_status"; fi
-          npm update metro metro-config metro-transform-worker image-size @react-navigation/core query-string decode-uri-component --package-lock-only --ignore-scripts
+          # Metro 패키지끼리 서로 이전 버전을 고정한 부분만 재해석한다.
+          # 실제 버전, integrity와 의존성은 npm이 package.json의 범위에 따라 다시 작성한다.
+          node <<'NODE' | tee "$RUNNER_TEMP/dependency-paths.txt"
+          const fs = require('node:fs');
+          const file = 'package-lock.json';
+          const lock = JSON.parse(fs.readFileSync(file, 'utf8'));
+          for (const name of Object.keys(lock.packages)) {
+            if (/(^|\/)node_modules\/metro(?:-[^/]+)?(?:\/|$)/.test(name)) {
+              console.log(`Re-resolve ${name}: ${lock.packages[name].version}`);
+              delete lock.packages[name];
+            }
+          }
+          fs.writeFileSync(file, JSON.stringify(lock, null, 2) + '\n');
+          fs.rmSync('node_modules', {recursive: true, force: true});
+          NODE
+          npm install --package-lock-only --ignore-scripts
           git diff --exit-code -- package.json
       - name: Verify candidate
         env:

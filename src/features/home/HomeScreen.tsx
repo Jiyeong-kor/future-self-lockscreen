@@ -1,4 +1,4 @@
-import React, {useCallback, useEffect, useMemo, useState} from 'react';
+import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -41,8 +41,15 @@ export function HomeScreen({repository}: HomeScreenProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const saveInFlight = useRef(false);
+  const contentRef = useRef('');
 
   const colors = isDark ? darkColors : lightColors;
+
+  const updateContent = useCallback((next: string) => {
+    contentRef.current = next;
+    setContent(next);
+  }, []);
 
   const loadRecent = useCallback(async () => {
     try {
@@ -61,23 +68,28 @@ export function HomeScreen({repository}: HomeScreenProps) {
   }, [loadRecent]);
 
   const save = useCallback(async () => {
-    if (content.trim().length === 0 || isSaving) {
+    const submittedContent = contentRef.current;
+    if (submittedContent.trim().length === 0 || saveInFlight.current) {
       return;
     }
 
+    saveInFlight.current = true;
     setIsSaving(true);
     setErrorMessage(null);
 
     try {
-      await captureRepository.create({content});
-      setContent('');
+      await captureRepository.create({content: submittedContent});
+      if (contentRef.current === submittedContent) {
+        updateContent('');
+      }
       await loadRecent();
     } catch {
       setErrorMessage('기록을 저장하지 못했습니다. 입력한 내용은 그대로 두었습니다.');
     } finally {
+      saveInFlight.current = false;
       setIsSaving(false);
     }
-  }, [captureRepository, content, isSaving, loadRecent]);
+  }, [captureRepository, loadRecent, updateContent]);
 
   return (
     <View style={[styles.screen, {backgroundColor: colors.background}]}>
@@ -101,7 +113,7 @@ export function HomeScreen({repository}: HomeScreenProps) {
             placeholder="지금 떠오르는 생각"
             placeholderTextColor={colors.placeholder}
             value={content}
-            onChangeText={setContent}
+            onChangeText={updateContent}
             style={[styles.input, {color: colors.text}]}
             textAlignVertical="top"
             maxLength={4000}

@@ -48,5 +48,12 @@
   "op-sqlite": {
     "sqlcipher": true,
     "fts5": true
+  },
+  "codegenConfig": {
+    "name": "FutureSelfStorageSpec",
+    "type": "modules",
+    "jsSrcsDir": "specs",
+    "android": {"javaPackageName": "com.futureself.storage"},
+    "ios": {"modulesProvider": {"NativePrivateStorage": "RCTPrivateStorage"}}
   }
 }

@@ -1,0 +1,111 @@
+name: iOS Build
+
+on:
+  workflow_call:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  simulator-build:
+    runs-on: macos-latest
+    timeout-minutes: 40
+    env:
+      RCT_NO_LAUNCH_PACKAGER: '1'
+      FORCE_BUNDLING: '1'
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Record build environment
+        run: |
+          sw_vers
+          xcodebuild -version
+          xcodebuild -showsdks
+          node --version
+          npm --version
+      - name: Install JavaScript dependencies
+        run: npm ci
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3'
+          bundler-cache: true
+      - name: Install CocoaPods dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          bundle exec pod install --project-directory=ios 2>&1 | tee "$RUNNER_TEMP/future-self-pods.log"
+      - name: Configure isolated runtime tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s scripts/ci -p 'test_*.py'
+          bundle exec ruby ios/configure_runtime_tests.rb
+          cp ios/FutureSelf.xcodeproj/project.pbxproj "$RUNNER_TEMP/runtime-project.pbxproj"
+          cp ios/FutureSelf.xcodeproj/xcshareddata/xcschemes/FutureSelfRuntime.xcscheme "$RUNNER_TEMP/runtime-scheme.xcscheme"
+          bundle exec ruby ios/configure_runtime_tests.rb
+          cmp ios/FutureSelf.xcodeproj/project.pbxproj "$RUNNER_TEMP/runtime-project.pbxproj"
+          cmp ios/FutureSelf.xcodeproj/xcshareddata/xcschemes/FutureSelfRuntime.xcscheme "$RUNNER_TEMP/runtime-scheme.xcscheme"
+          xcrun simctl list --json | python3 scripts/ci/select_ios_simulator.py > "$RUNNER_TEMP/simulator-selection.txt"
+          read -r DEVICE_TYPE RUNTIME < "$RUNNER_TEMP/simulator-selection.txt"
+          DEVICE_ID="$(xcrun simctl create "FutureSelfRuntime-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" "$DEVICE_TYPE" "$RUNTIME")"
+          echo "FUTURE_SELF_TEST_DEVICE=$DEVICE_ID" >> "$GITHUB_ENV"
+          xcrun simctl boot "$DEVICE_ID"
+          xcrun simctl bootstatus "$DEVICE_ID" -b
+      - name: Build bundled Release app and UI tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          export NODE_BINARY="$(command -v node)"
+          xcodebuild \
+            -workspace ios/FutureSelf.xcworkspace \
+            -scheme FutureSelfRuntime \
+            -configuration Release \
+            -sdk iphonesimulator \
+            -destination "platform=iOS Simulator,id=$FUTURE_SELF_TEST_DEVICE" \
+            -derivedDataPath "$RUNNER_TEMP/future-self-derived" \
+            CODE_SIGNING_ALLOWED=NO \
+            build-for-testing 2>&1 | tee "$RUNNER_TEMP/future-self-ios-build.log"
+      - name: Verify storage persistence and background return
+        shell: bash
+        run: |
+          set -euo pipefail
+          xcodebuild \
+            -workspace ios/FutureSelf.xcworkspace \
+            -scheme FutureSelfRuntime \
+            -configuration Release \
+            -destination "platform=iOS Simulator,id=$FUTURE_SELF_TEST_DEVICE" \
+            -derivedDataPath "$RUNNER_TEMP/future-self-derived" \
+            -resultBundlePath "$RUNNER_TEMP/future-self-runtime.xcresult" \
+            -parallel-testing-enabled NO \
+            -test-timeouts-enabled YES \
+            -default-test-execution-time-allowance 90 \
+            -maximum-test-execution-time-allowance 120 \
+            CODE_SIGNING_ALLOWED=NO \
+            test-without-building 2>&1 | tee "$RUNNER_TEMP/future-self-runtime.log"
+      - name: Preserve native build diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-build-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/future-self-pods.log
+            ${{ runner.temp }}/future-self-ios-build.log
+            ${{ runner.temp }}/future-self-runtime.log
+            ${{ runner.temp }}/future-self-runtime.xcresult
+            ${{ runner.temp }}/runtime-project.pbxproj
+            ${{ runner.temp }}/runtime-scheme.xcscheme
+            ${{ runner.temp }}/simulator-selection.txt
+            Gemfile.lock
+            ios/Podfile.lock
+          retention-days: 7
+          if-no-files-found: warn
+      - name: Remove only the simulator created for this run
+        if: always() && env.FUTURE_SELF_TEST_DEVICE != ''
+        shell: bash
+        run: xcrun simctl delete "$FUTURE_SELF_TEST_DEVICE"

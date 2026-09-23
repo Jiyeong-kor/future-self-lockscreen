@@ -1,6 +1,6 @@
 import React from 'react';
 import Renderer from 'react-test-renderer';
-import {Alert, Pressable, Text, TextInput} from 'react-native';
+import {Alert, Text, TextInput} from 'react-native';
 import {MeaningScreen} from '../MeaningScreen';
 import {MeaningComposer} from '../MeaningComposer';
 import {MeaningDetails} from '../MeaningDetails';
@@ -45,7 +45,8 @@ describe('Meaning card flows', () => {
     };
   });
   afterEach(async () => {
-    await Renderer.act(async () => { tree?.unmount(); jest.runOnlyPendingTimers(); });
+    await Renderer.act(async () => { tree?.unmount(); });
+    await Renderer.act(async () => { jest.runOnlyPendingTimers(); });
     tree = undefined;
     jest.useRealTimers();
     jest.restoreAllMocks();
@@ -54,14 +55,20 @@ describe('Meaning card flows', () => {
     await Renderer.act(async () => { tree = Renderer.create(element); });
   }
   function button(label: string) {
-    return tree!.root.findAllByType(Pressable).find(item => item.props.accessibilityLabel === label)!;
+    const matches = tree!.root.findAll(item =>
+      item.props.accessibilityLabel === label && typeof item.props.onPress === 'function');
+    if (matches.length === 0) { throw new Error(`버튼을 찾을 수 없습니다: ${label}`); }
+    return matches[0];
   }
   function hasText(text: string) {
     return tree!.root.findAllByType(Text).some(item => item.props.children === text);
   }
   function textButton(text: string) {
-    return tree!.root.findAllByType(Pressable).find(item =>
-      item.findAllByType(Text).some(child => child.props.children === text))!;
+    const matches = tree!.root.findAll(item =>
+      item.props.accessibilityRole === 'button' && typeof item.props.onPress === 'function' &&
+      item.findAllByType(Text).some(child => child.props.children === text));
+    if (matches.length === 0) { throw new Error(`버튼을 찾을 수 없습니다: ${text}`); }
+    return matches[0];
   }
 
   it('카드 추가는 명시적으로 선택하기 전에는 열리지 않는다', async () => {

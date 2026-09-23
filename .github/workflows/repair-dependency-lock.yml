@@ -23,12 +23,33 @@ jobs:
         with:
           node-version: '22'
           cache: npm
-      - name: Prepare compatible lockfile candidate
+      - name: Inspect dependency paths and prepare a compatible candidate
+        shell: bash
         run: |
+          set -euo pipefail
+          trap 'git diff -- package-lock.json > "$RUNNER_TEMP/lockfile-candidate.diff"' EXIT
           npm ci --ignore-scripts
-          npm audit fix --package-lock-only --ignore-scripts
+          node <<'NODE' | tee "$RUNNER_TEMP/dependency-paths.txt"
+          const lock = require('./package-lock.json');
+          const targets = ['image-size', 'metro', 'metro-config', 'metro-transform-worker', '@react-navigation/core', 'query-string', 'decode-uri-component'];
+          for (const [name, info] of Object.entries(lock.packages)) {
+            if (targets.some(target => name.endsWith('/' + target)) ||
+                Object.keys(info.dependencies || {}).some(name => targets.includes(name))) {
+              console.log(JSON.stringify({path: name, version: info.version, dependencies: info.dependencies}));
+            }
+          }
+          NODE
+          for package in image-size metro metro-config metro-transform-worker; do
+            echo "Registry metadata: $package" >> "$RUNNER_TEMP/registry-metadata.txt"
+            npm view "$package" version dependencies repository --json >> "$RUNNER_TEMP/registry-metadata.txt"
+          done
+          # 중간 수정 명령의 미해결 취약점은 기록한다. 최종 audit 게이트는 아래에서 반드시 통과해야 한다.
+          fix_status=0
+          npm audit fix --package-lock-only --ignore-scripts > "$RUNNER_TEMP/audit-fix.txt" 2>&1 || fix_status=$?
+          cat "$RUNNER_TEMP/audit-fix.txt"
+          if (( fix_status > 1 )); then exit "$fix_status"; fi
+          npm update metro metro-config metro-transform-worker image-size @react-navigation/core query-string decode-uri-component --package-lock-only --ignore-scripts
           git diff --exit-code -- package.json
-          git diff -- package-lock.json > "$RUNNER_TEMP/lockfile-candidate.diff"
       - name: Verify candidate
         env:
           AUDIT_REPORT_DIR: ${{ runner.temp }}/candidate-audit
@@ -69,6 +90,9 @@ jobs:
           name: dependency-repair-candidate
           path: |
             ${{ runner.temp }}/lockfile-candidate.diff
+            ${{ runner.temp }}/dependency-paths.txt
+            ${{ runner.temp }}/registry-metadata.txt
+            ${{ runner.temp }}/audit-fix.txt
             ${{ runner.temp }}/candidate-blob-sha.txt
             ${{ runner.temp }}/candidate-audit/
           retention-days: 7

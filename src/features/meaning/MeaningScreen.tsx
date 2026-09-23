@@ -25,7 +25,7 @@ export function MeaningScreen({repository}: MeaningScreenProps) {
   const [notice, setNotice] = useState<string>();
   const [composing, setComposing] = useState(false);
   const [selected, setSelected] = useState<MeaningSummary>();
-  const cursor = useRef<MeaningCursor>();
+  const cursor = useRef<MeaningCursor | undefined>(undefined);
   const request = useRef(0);
   const busy = useRef(false);
 

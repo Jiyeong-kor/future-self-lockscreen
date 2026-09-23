@@ -1,10 +1,8 @@
 import * as Keychain from 'react-native-keychain';
 
 import {generateDatabaseEncryptionKey} from './secureRandom';
-
-const DATABASE_KEY_USERNAME = 'future-self-private-db';
-const CONFIRMED_SERVICE = 'future-self.private-db-key.v1';
-const PENDING_SERVICE = 'future-self.private-db-key.pending.v1';
+import {createDatabaseKeyStore} from './databaseKeyStoreCore';
+export type {DatabaseKeyStore} from './databaseKeyStoreCore';
 
 function setOptions(service: string): Keychain.SetOptions {
   return {
@@ -14,59 +12,28 @@ function setOptions(service: string): Keychain.SetOptions {
   };
 }
 
-async function readKey(service: string): Promise<string | null> {
-  const credentials = await Keychain.getGenericPassword({service});
-  if (credentials === false) {
-    return null;
-  }
-  return credentials.password;
-}
-
-async function writeKey(service: string, key: string): Promise<void> {
-  const result = await Keychain.setGenericPassword(
-    DATABASE_KEY_USERNAME,
-    key,
-    setOptions(service),
-  );
-  if (result === false) {
-    throw new Error(`Failed to persist database key for service: ${service}`);
-  }
-}
-
-async function removeKey(service: string): Promise<void> {
-  await Keychain.resetGenericPassword({service});
-}
-
-export interface DatabaseKeyStore {
-  getConfirmed(): Promise<string | null>;
-  getOrCreatePending(): Promise<string>;
-  promotePending(key: string): Promise<void>;
-  clearPending(): Promise<void>;
-}
-
-export const databaseKeyStore: DatabaseKeyStore = {
-  getConfirmed: () => readKey(CONFIRMED_SERVICE),
-
-  async getOrCreatePending(): Promise<string> {
-    const existing = await readKey(PENDING_SERVICE);
-    if (existing !== null) {
-      return existing;
-    }
-
-    const key = generateDatabaseEncryptionKey();
-    await writeKey(PENDING_SERVICE, key);
-    return key;
+export const databaseKeyStore = createDatabaseKeyStore({
+  async read(service) {
+    const credentials = await Keychain.getGenericPassword({service});
+    return credentials === false ? null : {
+      username: credentials.username,
+      password: credentials.password,
+    };
   },
 
-  async promotePending(key: string): Promise<void> {
-    const pending = await readKey(PENDING_SERVICE);
-    if (pending !== key) {
-      throw new Error('Pending database key changed before promotion.');
+  async write(service, credentials) {
+    const result = await Keychain.setGenericPassword(
+      credentials.username,
+      credentials.password,
+      setOptions(service),
+    );
+    if (result === false) {
+      throw new Error('암호화 키 저장을 확인하지 못했습니다.');
     }
-
-    await writeKey(CONFIRMED_SERVICE, key);
-    await removeKey(PENDING_SERVICE);
   },
 
-  clearPending: () => removeKey(PENDING_SERVICE),
-};
+  async remove(service) {
+    // 삭제 결과는 코어에서 다시 읽어 확인한다. 실패를 성공으로 간주하지 않는다.
+    await Keychain.resetGenericPassword({service});
+  },
+}, generateDatabaseEncryptionKey);

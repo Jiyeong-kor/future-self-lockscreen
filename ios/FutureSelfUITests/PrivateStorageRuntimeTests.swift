@@ -11,12 +11,12 @@ final class PrivateStorageRuntimeTests: XCTestCase {
     app.launchArguments += ["-AppleLanguages", "(ko)", "-AppleLocale", "ko_KR"]
     app.launch()
     XCTAssertTrue(app.wait(for: .runningForeground, timeout: 20))
-    XCTAssertTrue(app.textViews["빠른 기록"].waitForExistence(timeout: 30))
+    XCTAssertTrue(app.descendants(matching: .any)["빠른 기록"].waitForExistence(timeout: 30))
     return app
   }
 
   private func enter(_ text: String, in app: XCUIApplication) {
-    let input = app.textViews["빠른 기록"]
+    let input = app.descendants(matching: .any)["빠른 기록"]
     XCTAssertTrue(input.waitForExistence(timeout: 10))
     input.tap()
     input.typeText(text)
@@ -41,7 +41,7 @@ final class PrivateStorageRuntimeTests: XCTestCase {
 
     app.terminate()
     app.launch()
-    XCTAssertTrue(app.textViews["빠른 기록"].waitForExistence(timeout: 30))
+    XCTAssertTrue(app.descendants(matching: .any)["빠른 기록"].waitForExistence(timeout: 30))
     XCTAssertTrue(app.staticTexts[text].firstMatch.waitForExistence(timeout: 20),
                   "프로세스 재시작 후에도 기존 키로 기록을 읽어야 합니다.")
   }
@@ -58,7 +58,7 @@ final class PrivateStorageRuntimeTests: XCTestCase {
     XCTAssertTrue(app.wait(for: .runningBackground, timeout: 10))
     app.activate()
     XCTAssertTrue(app.wait(for: .runningForeground, timeout: 20))
-    let input = app.textViews["빠른 기록"]
+    let input = app.descendants(matching: .any)["빠른 기록"]
     XCTAssertTrue(input.waitForExistence(timeout: 10))
     XCTAssertEqual(input.value as? String, draft,
                    "백그라운드 전환은 작성 중인 생각을 지우지 않아야 합니다.")

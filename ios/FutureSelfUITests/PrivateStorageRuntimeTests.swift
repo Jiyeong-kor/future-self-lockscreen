@@ -63,7 +63,7 @@ final class PrivateStorageRuntimeTests: XCTestCase {
     XCTAssertEqual(input.value as? String, draft,
                    "백그라운드 전환은 작성 중인 생각을 지우지 않아야 합니다.")
     save(draft, in: app)
-    XCTAssertEqual(app.staticTexts[draft].count, 1,
+    XCTAssertEqual(app.staticTexts.matching(NSPredicate(format: "label == %@", draft)).count, 1,
                    "복귀 후 저장은 자동 재시도로 중복 생성되지 않아야 합니다.")
     XCTAssertTrue(app.staticTexts[saved].firstMatch.exists)
   }

@@ -1,0 +1,74 @@
+name: Dependency Repair Candidate
+
+on:
+  push:
+    branches: [maintenance/dependency-repair-20260924]
+    paths: [.github/workflows/repair-dependency-lock.yml]
+
+permissions:
+  contents: read
+
+jobs:
+  candidate:
+    if: github.repository == 'Jiyeong-kor/future-self-lockscreen'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Prepare compatible lockfile candidate
+        run: |
+          npm ci --ignore-scripts
+          npm audit fix --package-lock-only --ignore-scripts
+          git diff --exit-code -- package.json
+          git diff -- package-lock.json > "$RUNNER_TEMP/lockfile-candidate.diff"
+      - name: Verify candidate
+        env:
+          AUDIT_REPORT_DIR: ${{ runner.temp }}/candidate-audit
+        run: |
+          npm ci
+          node --test scripts/ci/audit-policy.test.cjs
+          npm run typecheck
+          npm test -- --runInBand
+          npm run lint
+          node scripts/ci/audit-policy.cjs
+      - name: Store verified lockfile blob without changing branches
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          node <<'NODE'
+          const fs = require('node:fs');
+          (async () => {
+            const response = await fetch(`${process.env.GITHUB_API_URL}/repos/${process.env.GITHUB_REPOSITORY}/git/blobs`, {
+              method: 'POST',
+              headers: {
+                Authorization: `Bearer ${process.env.GH_TOKEN}`,
+                Accept: 'application/vnd.github+json',
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({content: fs.readFileSync('package-lock.json', 'utf8'), encoding: 'utf-8'}),
+            });
+            if (!response.ok) throw new Error(`Blob upload failed: ${response.status}`);
+            const blob = await response.json();
+            if (!/^[0-9a-f]{40}$/.test(blob.sha)) throw new Error('Invalid blob SHA');
+            fs.writeFileSync(`${process.env.RUNNER_TEMP}/candidate-blob-sha.txt`, blob.sha + '\n');
+            console.log(`Verified candidate blob: ${blob.sha}`);
+          })().catch(error => { console.error(error.message); process.exitCode = 1; });
+          NODE
+      - name: Preserve review artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dependency-repair-candidate
+          path: |
+            ${{ runner.temp }}/lockfile-candidate.diff
+            ${{ runner.temp }}/candidate-blob-sha.txt
+            ${{ runner.temp }}/candidate-audit/
+          retention-days: 7

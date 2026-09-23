@@ -6,6 +6,7 @@ import {
   DatabaseKeyAccessError,
   DatabaseRecoveryRequiredError,
 } from './errors';
+import {ProtectedDataUnavailableError} from './ProtectedDataAccess';
 import type {SqlDatabase} from './types';
 
 export interface EncryptedDatabaseDependencies {
@@ -41,12 +42,14 @@ export async function openEncryptedDatabase(
       // SQLCipher는 실제 페이지를 읽을 때 잘못된 키를 검출한다.
       await database.execute('SELECT count(*) AS table_count FROM sqlite_master');
     } catch (error) {
+      if (error instanceof ProtectedDataUnavailableError) { throw error; }
       throw new DatabaseRecoveryRequiredError('개인 데이터베이스를 읽지 못했습니다. 기존 데이터를 초기화하지 않습니다.', error);
     }
 
     try {
       await dependencies.initialize(database);
     } catch (error) {
+      if (error instanceof ProtectedDataUnavailableError) { throw error; }
       // 설정 또는 migration 실패를 암호화 키 손상으로 오인하지 않는다.
       throw new DatabaseInitializationError(error);
     }

@@ -1,18 +1,11 @@
 import React, {useCallback, useMemo, useRef, useState} from 'react';
 import {useFocusEffect} from '@react-navigation/native';
 import {ActivityIndicator, FlatList, Pressable, StyleSheet, Text, useColorScheme, View} from 'react-native';
-import {
-  SqlMeaningRepository,
-  type MeaningCursor,
-  type MeaningRepository,
-  type MeaningSummary,
-} from '../../repositories/MeaningRepository';
+import {SqlMeaningRepository, type MeaningCursor, type MeaningRepository, type MeaningSummary} from '../../repositories/MeaningRepository';
 import {MeaningComposer} from './MeaningComposer';
 import {MeaningDetails} from './MeaningDetails';
 
-export interface MeaningScreenProps {
-  repository?: MeaningRepository;
-}
+export interface MeaningScreenProps { repository?: MeaningRepository; }
 
 export function MeaningScreen({repository}: MeaningScreenProps) {
   const dark = useColorScheme() === 'dark';
@@ -47,31 +40,20 @@ export function MeaningScreen({repository}: MeaningScreenProps) {
       cursor.current = page.nextCursor;
       setHasMore(page.nextCursor !== undefined);
     } catch {
-      if (version === request.current) {
-        setError('의미 카드 목록을 불러오지 못했습니다.');
-      }
+      if (version === request.current) { setError('의미 카드 목록을 불러오지 못했습니다.'); }
     } finally {
-      if (version === request.current) {
-        busy.current = false;
-        setLoading(false);
-      }
+      if (version === request.current) { busy.current = false; setLoading(false); }
     }
   }, [meaningRepository]);
 
   useFocusEffect(useCallback(() => {
     void load();
-    return () => {
-      request.current += 1;
-      busy.current = false;
-    };
+    return () => { request.current += 1; busy.current = false; };
   }, [load]));
 
   return (
     <View style={[styles.screen, {backgroundColor: dark ? '#111210' : '#F7F7F5'}]}>
-      <FlatList
-        data={items}
-        keyExtractor={item => item.id}
-        contentContainerStyle={styles.content}
+      <FlatList data={items} keyExtractor={item => item.id} contentContainerStyle={styles.content}
         ListHeaderComponent={
           <View>
             <Text accessibilityRole="header" style={[styles.title, {color}]}>의미</Text>
@@ -89,7 +71,7 @@ export function MeaningScreen({repository}: MeaningScreenProps) {
           </View>
         }
         ListEmptyComponent={!loading && error === undefined ?
-          <Text style={[styles.message, {color}]}>아직 저장한 의미 카드가 없습니다.</Text> : null}
+          <Text style={[styles.message, {color}]}>아직 저장한 의미 카드가 없습니다.</Text> : undefined}
         renderItem={({item}) => (
           <Pressable accessibilityRole="button" accessibilityLabel={`의미 카드 보기: ${item.title}`}
             onPress={() => setSelected(item)} style={[styles.card, {backgroundColor: dark ? '#1B1C19' : '#FFFFFF'}]}>
@@ -100,15 +82,11 @@ export function MeaningScreen({repository}: MeaningScreenProps) {
         ListFooterComponent={loading ? <ActivityIndicator accessibilityLabel="의미 카드 불러오는 중" /> :
           hasMore ? <Pressable accessibilityRole="button" onPress={() => void load(true)} style={styles.button}>
             <Text style={{color}}>더 보기</Text>
-          </Pressable> : null}
+          </Pressable> : undefined}
       />
       {composing ? <MeaningComposer repository={meaningRepository}
         onCancel={() => setComposing(false)}
-        onSaved={() => {
-          setComposing(false);
-          setNotice('저장했습니다.');
-          void load();
-        }} /> : null}
+        onSaved={() => { setComposing(false); setNotice('저장했습니다.'); void load(); }} /> : null}
       {selected !== undefined ? <MeaningDetails card={selected} repository={meaningRepository}
         onClose={() => setSelected(undefined)} /> : null}
     </View>

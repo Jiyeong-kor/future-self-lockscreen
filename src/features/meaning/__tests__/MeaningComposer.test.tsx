@@ -1,6 +1,6 @@
 import React from 'react';
 import Renderer from 'react-test-renderer';
-import {Alert, Pressable, TextInput} from 'react-native';
+import {Alert, TextInput} from 'react-native';
 import {MeaningComposer, type MeaningComposerProps} from '../MeaningComposer';
 import type {MeaningRecord} from '../../../repositories/MeaningRepository';
 
@@ -26,7 +26,8 @@ describe('MeaningComposer', () => {
     onCancel = jest.fn();
   });
   afterEach(async () => {
-    await Renderer.act(async () => { tree?.unmount(); jest.runOnlyPendingTimers(); });
+    await Renderer.act(async () => { tree?.unmount(); });
+    await Renderer.act(async () => { jest.runOnlyPendingTimers(); });
     tree = undefined;
     jest.useRealTimers();
     jest.restoreAllMocks();
@@ -42,7 +43,10 @@ describe('MeaningComposer', () => {
     return tree!.root.findAllByType(TextInput).find(item => item.props.accessibilityLabel === label)!;
   }
   function button(label: string) {
-    return tree!.root.findAllByType(Pressable).find(item => item.props.accessibilityLabel === label)!;
+    const matches = tree!.root.findAll(item =>
+      item.props.accessibilityLabel === label && typeof item.props.onPress === 'function');
+    if (matches.length === 0) { throw new Error(`버튼을 찾을 수 없습니다: ${label}`); }
+    return matches[0];
   }
   async function type(text: string) {
     await Renderer.act(async () => { input('의미 카드 내용').props.onChangeText(text); });

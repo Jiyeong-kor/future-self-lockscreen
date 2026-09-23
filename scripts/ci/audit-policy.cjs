@@ -15,7 +15,8 @@ function assessAudit(result) {
     return {exitCode: 1, reason: '보안 검사 보고서를 읽을 수 없습니다.'};
   }
   const counts = report?.metadata?.vulnerabilities;
-  if (report.error || report.auditReportVersion !== 2 || !counts ||
+  if (report === null || typeof report !== 'object' || Array.isArray(report) ||
+      report.error || report.auditReportVersion !== 2 || !counts ||
       !severities.every(level => Number.isSafeInteger(counts[level]) && counts[level] >= 0) ||
       counts.total !== severities.reduce((sum, level) => sum + counts[level], 0) ||
       !report.vulnerabilities || typeof report.vulnerabilities !== 'object' ||

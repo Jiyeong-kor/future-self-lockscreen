@@ -37,3 +37,16 @@ test('음수 개수와 누락된 필드를 실패로 처리한다', () => {
   response.stdout = JSON.stringify(report);
   assert.equal(assessAudit(response).exitCode, 1);
 });
+
+test('null과 기본형 보고서를 예외 없이 실패로 처리한다', () => {
+  for (const stdout of ['null', 'true', '0', '"text"', '[]']) {
+    assert.equal(assessAudit({status: 0, stdout}).exitCode, 1);
+  }
+});
+test('알 수 없는 보고서 버전을 실패로 처리한다', () => {
+  const response = result();
+  const report = JSON.parse(response.stdout);
+  report.auditReportVersion = 99;
+  response.stdout = JSON.stringify(report);
+  assert.equal(assessAudit(response).exitCode, 1);
+});

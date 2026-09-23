@@ -55,7 +55,13 @@ iOS 관련 파일, npm 의존성, Gemfile, 워크플로가 바뀌면 네이티�
 
 ## 검증 기록
 
-이번 변경의 감사 판정 스크립트 테스트 11개를 로컬 Node 22에서 통과했다. Swift 파일은 구문 분석을 실행했으나 Linux의 구문 분석은 UIKit 타입 검사나 iOS 빌드가 아니다. 최종 PR 검사는 GitHub Actions의 해당 커밋 결과를 기준으로 판단한다.
+이번 변경의 감사 판정 스크립트 테스트는 로컬 Node 22에서 13개를 통과했다. null 또는 기본형 JSON과 알 수 없는 보고서 버전도 검증한다. Swift 파일은 구문 분석을 실행했으나 Linux의 구문 분석은 UIKit 타입 검사나 iOS 빌드가 아니다. 최종 PR 검사는 GitHub Actions의 해당 커밋 결과를 기준으로 판단한다.
+
+### 확인한 실행
+
+- 최초 PR 커밋 `2fc41f4a47303e63fbe3e385d7414bea8a2d1ab5`의 [CI 실행 35897954743](https://github.com/Jiyeong-kor/future-self-lockscreen/actions/runs/35897954743)에서 앱 검사와 iOS Simulator 빌드가 통과했다. CocoaPods 설치, JavaScript 번들 생성, UIKit을 포함한 컴파일·링크까지 수행했다. 이때 의존성 검사는 기존 높은 심각도 항목 때문에 실패했다.
+- [의존성 수정안 검증 실행 35899427313](https://github.com/Jiyeong-kor/future-self-lockscreen/actions/runs/35899427313)에서는 새 lockfile로 앱 검사와 npm audit을 통과했다. npm 보고는 모든 심각도 0개였다. 보안 예외를 추가해서 통과시킨 결과가 아니다.
+- 최종 PR 커밋에 반영한 lockfile과 감사 판정 스크립트는 PR에서 다시 검사한다. 위 첫 iOS 빌드 결과를 새 lockfile의 네이티브 빌드 결과로 대체하지 않는다.
 
 이 문서는 네이티브 검증 기반과 화면 가림 코드를 추가한 상태를 설명한다. 실기기 개인정보 보호 검증 완료를 선언하지 않는다.
 
